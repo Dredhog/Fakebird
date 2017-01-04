@@ -13,33 +13,45 @@
 */
 
 internal void
-DrawBoard(game_state *GameState, SDL_Renderer *Renderer){
-	for(uint32 i = 0; i < GameState->Board.Width; i++){
-		for(uint32 j = 0; j < GameState->Board.Height; j++){
+DrawLevel(game_state *GameState, SDL_Renderer *Renderer){
+	for(uint32 i = 0; i < GameState->Level.Width; i++){
+		for(uint32 j = 0; j < GameState->Level.Height; j++){
 			SDL_Rect CurrentRect = SDL_Rect{(int32)(i*BLOCK_WIDTH_IN_PIXELS),
 											(int32)(SCREEN_HEIGHT - (j+1)*BLOCK_HEIGHT_IN_PIXELS),
 											(int32)BLOCK_WIDTH_IN_PIXELS,
 											(int32)BLOCK_HEIGHT_IN_PIXELS};
 
-			if(GameState->Board.Occupancy[i][j] == 1){
+			if(GameState->Level.Occupancy[i][j] == 1){
 				SDL_SetRenderDrawColor(Renderer, 154, 101, 55, 255);
 				SDL_RenderFillRect(Renderer, &CurrentRect);
 				SDL_SetRenderDrawColor(Renderer, 200, 150, 55, 255);
 				SDL_RenderDrawRect(Renderer, &CurrentRect);
-			}else if(GameState->Board.Occupancy[i][j] == 2){
+			}else if(GameState->Level.Occupancy[i][j] == 2){
 				SDL_SetRenderDrawColor(Renderer, 200, 200, 55, 255);
 				SDL_RenderFillRect(Renderer, &CurrentRect);
 				SDL_SetRenderDrawColor(Renderer, 200, 150, 55, 255);
 				SDL_RenderDrawRect(Renderer, &CurrentRect);
-			}else if(GameState->Board.Occupancy[i][j] == 3){
+			}else if(GameState->Level.Occupancy[i][j] == 3){
 				SDL_SetRenderDrawColor(Renderer, 154, 155, 155, 255);
 				SDL_RenderFillRect(Renderer, &CurrentRect);
 				SDL_SetRenderDrawColor(Renderer, 200, 150, 55, 255);
 				SDL_RenderDrawRect(Renderer, &CurrentRect);
-			}else if(GameState->Board.Occupancy[i][j] == 4){
+			}else if(GameState->Level.Occupancy[i][j] == 4 && GameState->FruitRemaining != 0){
+				SDL_SetRenderDrawColor(Renderer, 70, 50, 70, 255);
+				SDL_RenderFillRect(Renderer, &CurrentRect);
+				SDL_SetRenderDrawColor(Renderer, 200, 150, 55, 255);
+				SDL_RenderDrawRect(Renderer, &CurrentRect);
+			}else if(GameState->Level.Occupancy[i][j] == 4 && GameState->FruitRemaining == 0){
 				SDL_SetRenderDrawColor(Renderer, 255, 50, 200, 255);
 				SDL_RenderFillRect(Renderer, &CurrentRect);
 				SDL_SetRenderDrawColor(Renderer, 200, 150, 55, 255);
+				SDL_RenderDrawRect(Renderer, &CurrentRect);
+			}else if(GameState->Level.Occupancy[i][j] == 0){
+
+			}else{
+				SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
+				SDL_RenderFillRect(Renderer, &CurrentRect);
+				SDL_SetRenderDrawColor(Renderer, 255, 255, 255, 255);
 				SDL_RenderDrawRect(Renderer, &CurrentRect);
 			}
 		}
@@ -72,24 +84,38 @@ DrawSnakes(game_state *GameState, SDL_Renderer *Renderer){
 	}
 }
 
-internal inline void
-AddSnake(game_state *GameState, snake Snake) {
-	assert(GameState->SnakeCount < GameState->SnakeCapacity);
-	Snake.SnakeID = GameState->SnakeCount + SNAKE_ID_OFFSET;
-	GameState->Snakes[GameState->SnakeCount++] = Snake;
+
+internal void
+AddSnakeToLevel(level *Level, snake Snake){
+	assert(Level->SnakeCount >= 0 && Level->SnakeCount < SNAKE_MAX_COUNT);
+	Snake.SnakeID = Level->SnakeCount + SNAKE_ID_OFFSET;
+	Level->Snakes[Level->SnakeCount++] = Snake;
 }
 
-internal inline void
+internal void
 PlayNextSnake(game_state *GameState){
 	uint64 Index = GameState->Player - GameState->Snakes;
 	GameState->Player = GameState->Snakes + ((Index+1) % GameState->SnakeCount);
 }
 
 internal void
-PrepareGameBoard(game_state *GameState){
-	for(uint32 i = 0; i < GameState->Board.Width; i++){
-		for(uint32 j = 0; j < GameState->Board.Height; j++){
-			GameState->Board.Occupancy[i][j] = LEVELS[GameState->Level][(GameState->Board.Height-1)-j][i];
+DeleteSnake(game_state *GameState, uint32 SnakeID){
+	uint32 RemoveIndex = SnakeID - SNAKE_ID_OFFSET;
+	assert(RemoveIndex >= 0 && RemoveIndex < GameState->SnakeCount);
+	for(uint32 p = 0; p < GameState->Snakes[RemoveIndex].Length; p++){
+		vec2i PartP = GameState->Snakes[RemoveIndex].Parts[p].GridP;
+		GameState->Level.Occupancy[PartP.X][PartP.Y] = 0;
+	}
+	for(uint32 i = RemoveIndex; i < GameState->SnakeCount-1; i++){
+		GameState->Snakes[i] = GameState->Snakes[i+1];
+	}
+	GameState->SnakeCount--;
+
+	for(uint32 i = 0; i < GameState->SnakeCount; i++){
+		GameState->Snakes[i].SnakeID = i + SNAKE_ID_OFFSET;
+		for(uint32 p = 0; p < GameState->Snakes[i].Length; p++){
+			vec2i PartP = GameState->Snakes[i].Parts[p].GridP;
+			GameState->Level.Occupancy[PartP.X][PartP.Y] = GameState->Snakes[i].SnakeID;
 		}
 	}
 }
@@ -103,64 +129,73 @@ InitGameState(game_state *GameState, void *MemoryEnd)
 
 	GameState->Snakes = (snake*)BaseAddress;
 
-	GameState->SnakeCount 	= 0;
-	GameState->VisitedCount = 0;
-	GameState->Level = 0;
+	GameState->LevelIndex = 2;
 	GameState->SnakeCapacity = SNAKE_MAX_COUNT;
-	GameState->Board.Width = EXAMPLE_LEVEL_WIDTH;
-	GameState->Board.Height = EXAMPLE_LEVEL_HEIGHT;
+
+	snake NewSnake;
+	NewSnake = snake{8, color{255, 10, 10, 255}, color{255, 76, 48, 255}};
+	NewSnake.Parts[0].GridP = vec2i{9, 6};
+	NewSnake.Parts[1].GridP = vec2i{8, 6};
+	NewSnake.Parts[2].GridP = vec2i{8, 5};
+	NewSnake.Parts[3].GridP = vec2i{8, 4};
+	NewSnake.Parts[4].GridP = vec2i{9, 4};
+	NewSnake.Parts[5].GridP = vec2i{10, 4};
+	NewSnake.Parts[6].GridP = vec2i{10, 3};
+	NewSnake.Parts[7].GridP = vec2i{10, 2};
+	AddSnakeToLevel(&GameState->Levels[0], NewSnake);
+
+	NewSnake = snake{3, color{0, 76, 255, 255}, color{0, 136, 255, 255}};
+	NewSnake.Parts[0].GridP = vec2i{10, 4};
+	NewSnake.Parts[1].GridP = vec2i{9, 4};
+	NewSnake.Parts[2].GridP = vec2i{9, 3};
+	AddSnakeToLevel(&GameState->Levels[1], NewSnake);
+
+	NewSnake = snake{3, color{24, 209, 31, 255}, color{71, 219, 72, 255}};
+	NewSnake.Parts[0].GridP = vec2i{12, 4};
+	NewSnake.Parts[1].GridP = vec2i{13, 4};
+	NewSnake.Parts[2].GridP = vec2i{14, 4};
+	AddSnakeToLevel(&GameState->Levels[2], NewSnake);
+
+	NewSnake = snake{4, color{0, 76, 255, 255}, color{0, 136, 255, 255}};
+	NewSnake.Parts[0].GridP = vec2i{13, 5};
+	NewSnake.Parts[1].GridP = vec2i{14, 5};
+	NewSnake.Parts[2].GridP = vec2i{15, 5};
+	NewSnake.Parts[3].GridP = vec2i{15, 4};
+	AddSnakeToLevel(&GameState->Levels[2], NewSnake);
 }
 
 internal void
 NewGame(game_state *GameState)
 {
-	PrepareGameBoard(GameState);
-
-	GameState->SnakeCount = 0;
 	GameState->VisitedCount   = 0;
+	GameState->Level = GameState->Levels[GameState->LevelIndex];
+	GameState->Level.Width = EXAMPLE_LEVEL_WIDTH;
+	GameState->Level.Height = EXAMPLE_LEVEL_HEIGHT;
 
-	snake NewSnake;
-	if(GameState->Level == 0){
-		NewSnake = snake{8, color{255, 10, 10, 255}, color{255, 76, 48, 255}};
-		NewSnake.Parts[0].GridP = vec2i{9, 6};
-		NewSnake.Parts[1].GridP = vec2i{8, 6};
-		NewSnake.Parts[2].GridP = vec2i{8, 5};
-		NewSnake.Parts[3].GridP = vec2i{8, 4};
-		NewSnake.Parts[4].GridP = vec2i{9, 4};
-		NewSnake.Parts[5].GridP = vec2i{10, 4};
-		NewSnake.Parts[6].GridP = vec2i{10, 3};
-		NewSnake.Parts[7].GridP = vec2i{10, 2};
-		AddSnake(GameState, NewSnake);
+	GameState->FruitRemaining = 0;
+	for(uint32 i = 0; i < GameState->Level.Width; i++){
+		for(uint32 j = 0; j < GameState->Level.Height; j++){
+			uint32 Value = LEVELS[GameState->LevelIndex][(GameState->Level.Height-1)-j][i];
+			GameState->Level.Occupancy[i][j] = Value;
+			if(Value == 2){
+				GameState->FruitRemaining++;
+			}else if(Value == 4){
+				GameState->PortalP = vec2i{(int32)i, (int32)j};
+			}
+		}
 	}
 
-	if(GameState->Level == 1){
-		NewSnake = snake{3, color{0, 76, 255, 255}, color{0, 136, 255, 255}};
-		NewSnake.Parts[0].GridP = vec2i{10, 4};
-		NewSnake.Parts[1].GridP = vec2i{9, 4};
-		NewSnake.Parts[2].GridP = vec2i{9, 3};
-		AddSnake(GameState, NewSnake);
+
+	GameState->SnakeCount = GameState->Level.SnakeCount;
+	for(uint32 i = 0; i < GameState->Level.SnakeCount; i++){
+		GameState->Snakes[i] = GameState->Level.Snakes[i];
 	}
-
-	if(GameState->Level == 2){
-		NewSnake = snake{3, color{24, 209, 31, 255}, color{71, 219, 72, 255}};
-		NewSnake.Parts[0].GridP = vec2i{12, 4};
-		NewSnake.Parts[1].GridP = vec2i{13, 4};
-		NewSnake.Parts[2].GridP = vec2i{14, 4};
-		AddSnake(GameState, NewSnake);
-
-		NewSnake = snake{4, color{0, 76, 255, 255}, color{0, 136, 255, 255}};
-		NewSnake.Parts[0].GridP = vec2i{13, 5};
-		NewSnake.Parts[1].GridP = vec2i{14, 5};
-		NewSnake.Parts[2].GridP = vec2i{15, 5};
-		NewSnake.Parts[3].GridP = vec2i{15, 4};
-		AddSnake(GameState, NewSnake);
-	}
-
 	GameState->Player = GameState->Snakes;
+
 	for(uint32 i = 0; i < GameState->SnakeCount; i++){
 		for(uint32 j = 0; j < GameState->Snakes[i].Length; j++){
 			vec2i PartPos = GameState->Snakes[i].Parts[j].GridP;
-			GameState->Board.Occupancy[PartPos.X][PartPos.Y] = GameState->Snakes[i].SnakeID;
+			GameState->Level.Occupancy[PartPos.X][PartPos.Y] = GameState->Snakes[i].SnakeID;
 		}
 	}
 }
@@ -178,18 +213,18 @@ IsRecursiveVisitPushable(game_state *GameState, uint32 SnakeID, uint32 FirstSnak
 	uint32 SnakeIndex = SnakeID-SNAKE_ID_OFFSET;
 	assert(SnakeIndex >= 0 && SnakeIndex < GameState->SnakeCount);
 	snake *Snake = GameState->Snakes + SnakeIndex;
-	board *Board = &GameState->Board;
+	level *Level = &GameState->Level;
 
 	GameState->Visited[SnakeIndex] = true;
 	GameState->VisitedSnakes[GameState->VisitedCount++] = Snake;
 
 	for(uint32 i = 0; i < Snake->Length; i++){
 		vec2i DestP = Snake->Parts[i].GridP + Dir;
-		if(!IsInBounds(DestP.X, DestP.Y, Board->Width, Board->Height)){
+		if(!IsInBounds(DestP.X, DestP.Y, Level->Width, Level->Height)){
 			return false;
 		}
 
-		uint32 DestValue = Board->Occupancy[DestP.X][DestP.Y];
+		uint32 DestValue = Level->Occupancy[DestP.X][DestP.Y];
 		if(	DestValue == FirstSnakeID || DestValue == 1 || DestValue == 2 || (DestValue == 3 && Dir.Y >= 0)){
 			return false;
 		}else if( DestValue >= SNAKE_ID_OFFSET && !GameState->Visited[DestValue-SNAKE_ID_OFFSET] &&
@@ -201,12 +236,12 @@ IsRecursiveVisitPushable(game_state *GameState, uint32 SnakeID, uint32 FirstSnak
 }
 
 internal void
-PushVisitedSnakes(game_state *GameState, board *Board, vec2i Dir){
+PushVisitedSnakes(game_state *GameState, level *Level, vec2i Dir){
 	for(uint32 i = 0; i < GameState->VisitedCount; i++){
 		snake *Snake = GameState->VisitedSnakes[i];
 		for(uint32 i = 0; i < Snake->Length; i++){
 			vec2i PartPos = Snake->Parts[i].GridP;
-			Board->Occupancy[PartPos.X][PartPos.Y] = 0;
+			Level->Occupancy[PartPos.X][PartPos.Y] = 0;
 			Snake->Parts[i].GridP += Dir;
 		}
 	}
@@ -214,7 +249,7 @@ PushVisitedSnakes(game_state *GameState, board *Board, vec2i Dir){
 		snake *Snake = GameState->VisitedSnakes[i];
 		for(uint32 i = 0; i < Snake->Length; i++){
 			vec2i PartPos = Snake->Parts[i].GridP;
-			Board->Occupancy[PartPos.X][PartPos.Y] = Snake->SnakeID;
+			Level->Occupancy[PartPos.X][PartPos.Y] = Snake->SnakeID;
 		}
 	}
 }
@@ -225,7 +260,7 @@ WillSnakesBeOnSpikes(game_state *GameState, vec2i Dir){
 		snake *Snake = GameState->Snakes + SnakeIndex;
 		for(uint32 i = 0; i < Snake->Length; i++){
 			vec2i P = Snake->Parts[i].GridP + Dir;
-			if(GameState->Board.Occupancy[P.X][P.Y] == 3){
+			if(GameState->Level.Occupancy[P.X][P.Y] == 3){
 				return true;
 			}
 		}
@@ -251,7 +286,7 @@ UpdateLogic(game_state *GameState, game_input *Input){
 	}
 
 	snake *Player = GameState->Player;
-	board *Board = &GameState->Board;
+	level *Level = &GameState->Level;
 	snake_part *Head = Player->Parts;
 	snake_part *Tail = Player->Parts + (Player->Length-1);
 
@@ -269,47 +304,60 @@ UpdateLogic(game_state *GameState, game_input *Input){
 	ClearVisitedSnakes(GameState);
 	
 	vec2i NewPos = Head->GridP + Direction;
-	if(IsInBounds(NewPos.X, NewPos.Y, Board->Width, Board->Height)){
-		uint32 Value = Board->Occupancy[NewPos.X][NewPos.Y];
+	if(IsInBounds(NewPos.X, NewPos.Y, Level->Width, Level->Height)){
+		uint32 Value = Level->Occupancy[NewPos.X][NewPos.Y];
 
 		bool move = false;
 		if(Value == 0){
-			Board->Occupancy[Tail->GridP.X][Tail->GridP.Y] = 0;
+			Level->Occupancy[Tail->GridP.X][Tail->GridP.Y] = 0;
 			move = true;
 		}else if(Value >= SNAKE_ID_OFFSET && Value != Player->SnakeID && IsRecursiveVisitPushable(GameState, Value, Player->SnakeID, Direction)){
-			PushVisitedSnakes(GameState, &GameState->Board, Direction);
-			Board->Occupancy[Tail->GridP.X][Tail->GridP.Y] = 0;
+			PushVisitedSnakes(GameState, &GameState->Level, Direction);
+			Level->Occupancy[Tail->GridP.X][Tail->GridP.Y] = 0;
 			move = true;
 		}else if(Value == 2){
 			Player->Length++;
 			assert(Player->Length <= SNAKE_MAX_LENGTH);
+			GameState->FruitRemaining--;
 			move = true;
 		}else if(Value == 4){
-			GameState->Level = (GameState->Level+1)%LEVEL_COUNT;
-			NewGame(GameState);
-			return;
+			if(GameState->FruitRemaining == 0){
+				DeleteSnake(GameState, Player->SnakeID);
+				if(GameState->SnakeCount > 0){
+					GameState->Player = GameState->Snakes;
+				}else if(GameState->SnakeCount == 0){
+					GameState->LevelIndex = (GameState->LevelIndex+1)%LEVEL_COUNT;
+					NewGame(GameState);
+				}
+				return;
+			}
+			Level->Occupancy[Tail->GridP.X][Tail->GridP.Y] = 0;
+			move = true;
 		}
 		if(move){
 			for(uint32 i = Player->Length-1; i > 0; i--){
 				Player->Parts[i].GridP = Player->Parts[i-1].GridP;
 			}
-			Board->Occupancy[NewPos.X][NewPos.Y] = Player->SnakeID;
+			Level->Occupancy[NewPos.X][NewPos.Y] = Player->SnakeID;
 			Head->GridP = NewPos;
 		}
 	}
 	for(uint32 SnakeIndex = 0; SnakeIndex < GameState->SnakeCount; SnakeIndex++){
 		ClearVisitedSnakes(GameState);
-		while(IsRecursiveVisitPushable(GameState, SnakeIndex + SNAKE_ID_OFFSET, 8, vec2i{0, -1})){
+		while(IsRecursiveVisitPushable(GameState, SnakeIndex + SNAKE_ID_OFFSET, SNAKE_MAX_COUNT+SNAKE_ID_OFFSET, vec2i{0, -1})){
 			if(WillSnakesBeOnSpikes(GameState, vec2i{0, -1})){
 				NewGame(GameState);
 				return;
 			}
-			PushVisitedSnakes(GameState, &GameState->Board, vec2i{0, -1});
+			PushVisitedSnakes(GameState, &GameState->Level, vec2i{0, -1});
 			ClearVisitedSnakes(GameState);
 		}
 	}
-}
 
+	if(GameState->Level.Occupancy[GameState->PortalP.X][GameState->PortalP.Y] == 0){
+		GameState->Level.Occupancy[GameState->PortalP.X][GameState->PortalP.Y] = 4;
+	}
+}
 
 void
 UpdateAndRender(game_memory *Memory, platform_state *Platform, game_input *Input)
@@ -331,7 +379,7 @@ UpdateAndRender(game_memory *Memory, platform_state *Platform, game_input *Input
 	SDL_SetRenderDrawColor(Platform->Renderer, 255, 255, 255, 255);
 	SDL_RenderDrawRect(Platform->Renderer, &Platform->screen_outline);
 
-	DrawBoard(GameState, Platform->Renderer);
+	DrawLevel(GameState, Platform->Renderer);
 	DrawSnakes(GameState, Platform->Renderer);
 
 	SDL_RenderPresent(Platform->Renderer);

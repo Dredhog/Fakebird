@@ -31,11 +31,14 @@ struct snake{
 	uint32		SnakeID;
 };
 
-struct board{
+struct level{
 	uint32 Occupancy[LEVEL_MAX_WIDTH][LEVEL_MAX_HEIGHT];
 	uint32 Width;
 	uint32 Height;
+	snake  Snakes[SNAKE_MAX_COUNT];
+	uint32 SnakeCount;
 };
+
 
 struct game_state
 {
@@ -49,8 +52,13 @@ struct game_state
 	uint8 	Visited[SNAKE_MAX_COUNT];
 	uint32 	VisitedCount;
 
-	board 	Board;
-	uint32	Level;
+	level 	Level;
+	uint32	LevelIndex;
+	
+	uint32	FruitRemaining;
+	vec2i	PortalP;
+
+	level 	Levels[LEVEL_COUNT];
 
 	bool32	Transitioning;
 	uint32	MagicChecksum;
