@@ -50,7 +50,7 @@ struct game_state
 	uint32 	VisitedCount;
 
 	board 	Board;
-	vec2i 	goal;
+	uint32	Level;
 
 	bool32	Transitioning;
 	uint32	MagicChecksum;

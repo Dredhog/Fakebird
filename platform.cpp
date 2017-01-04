@@ -61,6 +61,8 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event)
 				NewInput->Space.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_p) {
 				NewInput->p.EndedDown = true;
+			} else if (Event->key.keysym.sym == SDLK_r) {
+				NewInput->r.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_UP) {
 				NewInput->ArrowUp.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_DOWN) {
@@ -76,6 +78,8 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event)
 				NewInput->Space.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_p) {
 				NewInput->p.EndedDown = false;
+			} else if (Event->key.keysym.sym == SDLK_r) {
+				NewInput->r.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_UP) {
 				NewInput->ArrowUp.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_DOWN) {
@@ -104,7 +108,7 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event)
 	}
 	SDL_GetMouseState(&NewInput->MouseX, &NewInput->MouseY);
 
-	for (int Index = 0; Index < 9; Index++) {
+	for (int Index = 0; Index < 10; Index++) {
 		NewInput->Buttons[Index].Changed = (OldInput->Buttons[Index].EndedDown ==
 			NewInput->Buttons[Index].EndedDown) ? false : true;
 	}
