@@ -41,10 +41,14 @@ struct game_input{
 	int32				MouseY;
 
 	union{
-		game_button_state Buttons[10];
+		game_button_state Buttons[13];
 		struct{
+			game_button_state 	e;
 			game_button_state 	p;
 			game_button_state 	r;
+			game_button_state 	s;
+			game_button_state 	n;
+			game_button_state 	LeftCtrl;
 			game_button_state 	Space;
 			game_button_state 	ArrowUp;
 			game_button_state 	ArrowDown;
@@ -73,5 +77,14 @@ struct platform_state{
 	bool32			PlaybackStarted;
 	uint32			FrameCount;
 };
+
+struct debug_read_file_result{
+	void 	*Contents;
+	uint32  ContentsSize;
+};
+
+internal debug_read_file_result DEBUGPlatformReadEntireFile(char *Filename);
+internal void DEBUGPlatformFreeFileMemory(void *Memory);
+internal bool32 DEBUGPLatformWriteEntireFile(char *Filename, uint64 MemorySize, void *Memory);
 
 #endif //PLATFORM_H

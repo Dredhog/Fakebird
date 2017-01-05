@@ -19,6 +19,10 @@ struct color{
 	};
 };
 
+static color SNAKE_COLORS[3][2] = 	{{color{255, 10, 10, 255}, color{255, 76, 48, 255}},
+											{color{0, 76, 255, 255}, color{0, 136, 255, 255}},
+											{color{24, 209, 31, 255}, color{71, 219, 72, 255}}};
+
 struct snake_part{
 	vec2i 		GridP;	//Cartesian coord (first quadrant)
 };
@@ -44,10 +48,6 @@ struct game_state
 {
 	snake	*Player;
 
-	snake	*Snakes;
-	uint32	SnakeCount;
-	uint32	SnakeCapacity;
-
 	snake 	*VisitedSnakes[SNAKE_MAX_COUNT];
 	uint8 	Visited[SNAKE_MAX_COUNT];
 	uint32 	VisitedCount;
@@ -60,6 +60,8 @@ struct game_state
 
 	level 	Levels[LEVEL_COUNT];
 
+	uint32 	ActiveBrush;
+	bool32 	EditModeActive;
 	bool32	Transitioning;
 	uint32	MagicChecksum;
 };

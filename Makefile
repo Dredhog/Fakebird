@@ -1,5 +1,5 @@
 all:
-	g++ -std=c++0x -O3 -Wall -Wconversion -Wdouble-promotion  -g platform.cpp -o snakebird `sdl2-config --cflags --libs`
-	./snakebird
+	g++ -std=c++0x -O3 -Wall -Wconversion -Wdouble-promotion  -g platform.cpp -o snake `sdl2-config --cflags --libs`
+	./snake
 run: 
-	./snakebird
+	./snake
