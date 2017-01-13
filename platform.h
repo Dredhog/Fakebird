@@ -41,12 +41,13 @@ struct game_input{
 	int32				MouseY;
 
 	union{
-		game_button_state Buttons[13];
+		game_button_state Buttons[14];
 		struct{
 			game_button_state 	e;
 			game_button_state 	p;
 			game_button_state 	r;
 			game_button_state 	s;
+			game_button_state 	t;
 			game_button_state 	n;
 			game_button_state 	LeftCtrl;
 			game_button_state 	Space;
@@ -68,11 +69,11 @@ struct game_memory{
 };
 
 struct platform_state{
-	SDL_Renderer*	Renderer;
-	SDL_Window*		Window;
+	SDL_Renderer	*Renderer;
+	SDL_Window		*Window;
 	SDL_Event 		Event;
 	Timer 			FPS;
-	SDL_Rect 		screen_outline{ 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+	SDL_Rect 		ScreenOutline{ 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 	bool32 			Running;
 	bool32			PlaybackStarted;
 	uint32			FrameCount;
@@ -86,5 +87,6 @@ struct debug_read_file_result{
 internal debug_read_file_result DEBUGPlatformReadEntireFile(char *Filename);
 internal void DEBUGPlatformFreeFileMemory(void *Memory);
 internal bool32 DEBUGPLatformWriteEntireFile(char *Filename, uint64 MemorySize, void *Memory);
+internal SDL_Texture *DEBUGPlatformLoadImageFromFile(SDL_Renderer *Renderer, char *FileName);
 
 #endif //PLATFORM_H

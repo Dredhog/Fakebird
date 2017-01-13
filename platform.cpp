@@ -25,15 +25,15 @@ internal bool32
 InitPlatform(platform_state *Platform)
 {
 	if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
-		printf("SDL Initialization error: %s\n", SDL_GetError());
+		printf("Platform: SDL Initialization error: %s\n", SDL_GetError());
 		return false;
 	}
 	if ((Platform->Window = SDL_CreateWindow("Snakebird ripoff", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE)) == NULL) {
-		printf("Window creation error: %s\n", SDL_GetError());
+		printf("Platform: Window creation error: %s\n", SDL_GetError());
 		return false;
 	}
 	if ((Platform->Renderer = SDL_CreateRenderer(Platform->Window, -1, SDL_RENDERER_ACCELERATED)) == NULL) {
-		printf("Renderer creation error: %s\n", SDL_GetError());
+		printf("Platform: Renderer creation error: %s\n", SDL_GetError());
 		return false;
 	}
 	Platform->Running = true;
@@ -124,6 +124,17 @@ AllocateGameMemory(game_memory *GameMemory) {
 	//GameMemory->BaseAddress = VirtualAlloc(BaseAddress, GameMemory->Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 }
 
+internal SDL_Texture *DEBUGPlatformLoadImageFromFile(SDL_Renderer *Renderer, char *FileName){
+	SDL_Texture *Result = {};
+	SDL_Surface *ImageSurface = SDL_LoadBMP(FileName);
+
+	if(ImageSurface){
+		Result = SDL_CreateTextureFromSurface(Renderer, ImageSurface);
+	}else{
+		printf("Platform: Window creation error: %s\n", SDL_GetError());
+	}
+	return Result;
+}
 
 internal bool32
 ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event)
@@ -150,6 +161,8 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event)
 				NewInput->r.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_s) {
 				NewInput->s.EndedDown = true;
+			} else if (Event->key.keysym.sym == SDLK_t) {
+				NewInput->t.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_n) {
 				NewInput->n.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_UP) {
@@ -175,6 +188,8 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event)
 				NewInput->r.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_s) {
 				NewInput->s.EndedDown = false;
+			} else if (Event->key.keysym.sym == SDLK_t) {
+				NewInput->t.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_n) {
 				NewInput->n.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_UP) {

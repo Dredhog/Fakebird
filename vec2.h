@@ -26,10 +26,10 @@ struct vec2 {
 	}
 
 
-	vec2 operator+(const vec2& v) const noexcept {
+	vec2 operator+(const vec2& v) const  {
 		return vec2(X + v.X, Y + v.Y);
 	}
-	vec2 operator-(const vec2& v) const noexcept {
+	vec2 operator-(const vec2& v) const  {
 		return vec2(X - v.X, Y - v.Y);
 	}
 
