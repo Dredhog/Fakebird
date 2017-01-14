@@ -12,6 +12,18 @@
 #include <x86intrin.H>
 */
 
+internal inline bool32
+IsInBounds(int32 i, int32 j, int32 MaxI, int32 MaxJ){
+	if(i < 0 || j < 0 || i >= MaxI || j >= MaxJ){
+		return false;
+	}	
+	return true;
+}
+internal inline bool32
+IsPointInBounds(vec2i P, int32 MaxI, int32 MaxJ){
+	return IsInBounds(P.X, P.Y, MaxI, MaxJ);
+}
+
 internal inline vec2i
 GetGridP(int32 X, int32 Y, rectangle ScreenRect){
 	return vec2i{(X-ScreenRect.X)/BLOCK_WIDTH_IN_PIXELS, (ScreenRect.H - (Y-ScreenRect.Y))/BLOCK_HEIGHT_IN_PIXELS};
@@ -219,19 +231,6 @@ InitGameState(game_state *GameState, void *MemoryEnd)
 	GameState->SpriteAtlasActive = true;
 }
 
-#if 0
-internal void
-LoadTileTextureAndAssignDimensions(game_state *GameState, offscreen_buffer OffscreenBuffer, char *FileName){
-	SDL_Texture *TileTexture = DEBUGPlatformLoadImageFromFile(Renderer, FileName);
-	if(TileTexture){
-		GameState->TileTexture = TileTexture;
-	}else{
-		printf("Game: Spritesheet Load Error: Texture == NULL");
-	}
-	SDL_QueryTexture(GameState->TileTexture, 0, 0, &GameState->TextureWidth, &GameState->TextureHeight);
-}
-#endif
-
 internal void
 ClearVisitedSnakes(game_state *GameState){
 	GameState->VisitedCount = 0;
@@ -274,14 +273,6 @@ GameState->FruitRemaining = 0;
 	ClearVisitedSnakes(GameState);
 }
 
-internal inline bool32
-IsInBounds(int32 i, int32 j, int32 MaxI, int32 MaxJ){
-	if(i < 0 || j < 0 || i >= MaxI || j >= MaxJ){
-		return false;
-	}	
-	return true;
-}
-
 internal bool32
 IsRecursiveVisitPushable(game_state *GameState, uint32 SnakeID, uint32 FirstSnakeID, vec2i Dir){
 	uint32 SnakeIndex = SnakeID-SNAKE_ID_OFFSET;
@@ -294,7 +285,7 @@ IsRecursiveVisitPushable(game_state *GameState, uint32 SnakeID, uint32 FirstSnak
 
 	for(uint32 i = 0; i < Snake->Length; i++){
 		vec2i DestP = Snake->Parts[i].GridP + Dir;
-		if(!IsInBounds(DestP.X, DestP.Y, Level->Width, Level->Height)){
+		if(!IsPointInBounds(DestP, Level->Width, Level->Height)){
 			return false;
 		}
 
@@ -492,18 +483,17 @@ EditLevel(level *Level, rectangle ScreenOutline, uint32 *ActiveBrush, game_input
 }
 
 internal void
-TileLevel(game_state *GameState, rectangle ScreenOutline, game_input *Input){
-	vec2i MouseGridP = GetGridP(Input->MouseX, Input->MouseY, ScreenOutline);
+TileLevel(game_state *GameState, rectangle ScreenOutline, rectangle GameBoardRect, game_input *Input){
+	vec2i MouseGridP = GetGridP(Input->MouseX, Input->MouseY, GameBoardRect);
 	if(Input->MouseLeft.EndedDown){
-		vec2i MouseDeltaP = {Input->MouseX-GameState->SpriteAtlasRect.X, Input->MouseY-GameState->SpriteAtlasRect.Y};
-		if(GameState->SpriteAtlasActive && (MouseDeltaP.X >= 0 && MouseDeltaP.Y >= 0 && MouseDeltaP.X < GameState->SpriteAtlasRect.W && MouseDeltaP.Y < GameState->SpriteAtlasRect.H)){
+		if(GameState->SpriteAtlasActive && IsInsideRect(Input->MouseX, Input->MouseY, GameState->SpriteAtlasRect)){
 			if(Input->MouseLeft.Changed){
 				GameState->ActiveTileBrush = tile{GetTileGridRect(Input->MouseX, Input->MouseY, GameState->SpriteAtlasRect)};
 			}
-		}else{
+		}else if(IsPointInBounds(MouseGridP, GameState->Level.Width, GameState->Level.Height)){
 			GameState->Level.Tiles[GameState->ActiveLayerIndex][MouseGridP.X][MouseGridP.Y] = GameState->ActiveTileBrush;
 		}
-	}else if(Input->MouseRight.EndedDown){
+	}else if(Input->MouseRight.EndedDown && IsPointInBounds(MouseGridP, GameState->Level.Width, GameState->Level.Height)){
 		GameState->Level.Tiles[GameState->ActiveLayerIndex][MouseGridP.X][MouseGridP.Y] = {};
 	}
 
@@ -559,6 +549,8 @@ UpdateAndRender(game_memory *Memory, offscreen_buffer OffscreenBuffer, game_inpu
 	}
 
 	rectangle ScreenOutline = {0, 0, OffscreenBuffer.Width, OffscreenBuffer.Height};
+	rectangle GameBoardRect = {0, OffscreenBuffer.Height - LEVEL_MAX_HEIGHT*BLOCK_HEIGHT_IN_PIXELS, LEVEL_MAX_WIDTH*BLOCK_WIDTH_IN_PIXELS, LEVEL_MAX_HEIGHT*BLOCK_HEIGHT_IN_PIXELS};
+	GameState->SpriteAtlasRect = {0, OffscreenBuffer.Height - GameState->SpriteAtlas.Height, GameState->SpriteAtlas.Width, GameState->SpriteAtlas.Height};
 	
 	//Simulation/Editing/Tiling
 	if(GameState->Mode == Game_Mode_Play){
@@ -566,9 +558,8 @@ UpdateAndRender(game_memory *Memory, offscreen_buffer OffscreenBuffer, game_inpu
 	}else if(GameState->Mode == Game_Mode_Edit){
 		EditLevel(&GameState->Level, ScreenOutline, &GameState->ActiveBrush, Input);
 	}else{
-		TileLevel(GameState, GameState->SpriteAtlasRect, Input);
+		TileLevel(GameState, ScreenOutline, GameBoardRect, Input);
 	}
-
 
 	//Render
 	ClearOffscreenBuffer(OffscreenBuffer, color{100, 200, 255, 255});
@@ -586,7 +577,7 @@ UpdateAndRender(game_memory *Memory, offscreen_buffer OffscreenBuffer, game_inpu
 		DrawTileModeLevelAndUI(GameState, OffscreenBuffer, ScreenOutline);
 		DrawTileBrush(GameState, OffscreenBuffer, ScreenOutline, Input->MouseX, Input->MouseY);
 	}
-	DrawRectOutline(OffscreenBuffer, ScreenOutline, color{255, 255, 255, 255});
+	DrawRectOutline(OffscreenBuffer, GameBoardRect, color{255, 255, 255, 255});
 }
 
 #endif //GAME_CPP

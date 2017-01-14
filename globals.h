@@ -17,7 +17,7 @@ static const int FRAME_DURATION = 16;
 static const char TempName[] = "test_level";
 static const unsigned int LEVEL_COUNT = 5;
 static const int LEVEL_MAX_WIDTH 	= 25;
-static const int LEVEL_MAX_HEIGHT 	= 25;
+static const int LEVEL_MAX_HEIGHT 	= 20;
 static const unsigned int EDIT_BRUSH_COUNT = 8;
 //Layers
 static const int LEVEL_MAX_LAYER_COUNT = 3;

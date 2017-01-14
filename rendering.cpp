@@ -29,6 +29,19 @@ MaxInt32(int32 a, int32 b){
 	return b;
 }
 
+internal bool
+IsInsideRect(int32 X, int32 Y, rectangle Rect){
+	if(X >= Rect.X && X < Rect.X+Rect.W && Y >= Rect.Y && Y < Rect.Y+Rect.H){
+		return true;
+	}
+	return false;
+}
+
+internal bool
+IsPointInsideRect(vec2i P, rectangle Rect){
+	return IsInsideRect(P.X, P.Y, Rect);
+}
+
 internal void
 FillRect(offscreen_buffer Buffer, rectangle Rect, color FillColor){
 	FillColor = color{FillColor.R, FillColor.G, FillColor.B, FillColor.A};
@@ -133,18 +146,26 @@ StretchBitmapOrthogonaly(offscreen_buffer Buffer, rectangle Dest, loaded_bitmap 
 
 	vec2i	DestRelativeMinCorner = DestMinCorner - vec2i{Dest.X, Dest.Y};
 	vec2i	DestRelativeMaxCorner  = DestMaxCorner - vec2i{Dest.X, Dest.Y};
-	
+
+	rectangle ClippedSourceRect = {MaxInt32(Source.X, 0), MaxInt32(Source.Y, 0)};
+	ClippedSourceRect.W = MinInt32(Source.X+Source.W, Bitmap.Width) - ClippedSourceRect.X;
+	ClippedSourceRect.H = MinInt32(Source.Y+Source.H, Bitmap.Height) - ClippedSourceRect.Y;
+	assert(ClippedSourceRect.W > 0 && ClippedSourceRect.H > 0);
 
 	color *DestStart   = ((color*)Buffer.Memory) + Dest.Y*Buffer.Width + Dest.X;
 	color *SourceStart   = ((color*)Bitmap.Texels) + Source.Y*Bitmap.Width + Source.X;
 	for(int32 Y = DestRelativeMinCorner.Y; Y < DestRelativeMaxCorner.Y; Y++){
 		for(int32 X = DestRelativeMinCorner.X; X < DestRelativeMaxCorner.X; X++){
 			color *DestPixel = DestStart + Y*Buffer.Width + X;
-			color *SourcePixel = SourceStart + ((int32)(ScaleY*(real32)Y))*Bitmap.Width + (int32)(ScaleX*(real32)X);
-			real32 t = ((real32)SourcePixel->A)/255.0f;
-			DestPixel->R = (uint8)(DestPixel->R*(1.0f-t) + SourcePixel->R*t);
-			DestPixel->G = (uint8)(DestPixel->G*(1.0f-t) + SourcePixel->G*t);
-			DestPixel->B = (uint8)(DestPixel->B*(1.0f-t) + SourcePixel->B*t);
+			vec2i SourceP = {(int32)(ScaleX*(real32)X), (int32)(ScaleY*(real32)Y)};
+			if(IsPointInsideRect(SourceP+vec2i{Source.X, Source.Y}, ClippedSourceRect)){
+				color *SourcePixel = SourceStart + SourceP.Y*Bitmap.Width + SourceP.X;
+
+				real32 t = ((real32)SourcePixel->A)/255.0f;
+				DestPixel->R = (uint8)(DestPixel->R*(1.0f-t) + SourcePixel->R*t);
+				DestPixel->G = (uint8)(DestPixel->G*(1.0f-t) + SourcePixel->G*t);
+				DestPixel->B = (uint8)(DestPixel->B*(1.0f-t) + SourcePixel->B*t);
+			}
 		}
 	}
 }
