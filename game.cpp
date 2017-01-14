@@ -2,55 +2,54 @@
 #define GAME_CPP
 
 /*
-#include "platform.h"
-#include "game.h"
-#include "globals.h"
-#include "vec2.h"
-#include <SDL.h>
-#include <assert.h>
-#include <stdio.h>
-#include <x86intrin.h>
+#include "platform.H"
+#include "game.H"
+#include "globals.H"
+#include "vec2.H"
+#include <SDL.H>
+#include <assert.H>
+#include <stdio.H>
+#include <x86intrin.H>
 */
 
 internal inline vec2i
-GetGridP(int32 X, int32 Y, SDL_Rect ScreenRect){
-	return vec2i{(X-ScreenRect.x)/BLOCK_WIDTH_IN_PIXELS, (ScreenRect.h - (Y-ScreenRect.y))/BLOCK_HEIGHT_IN_PIXELS};
+GetGridP(int32 X, int32 Y, rectangle ScreenRect){
+	return vec2i{(X-ScreenRect.X)/BLOCK_WIDTH_IN_PIXELS, (ScreenRect.H - (Y-ScreenRect.Y))/BLOCK_HEIGHT_IN_PIXELS};
 }
 
-internal inline SDL_Rect
-GetGridRect(int32 X, int32 Y, SDL_Rect ScreenRect){
-	return SDL_Rect{X*BLOCK_WIDTH_IN_PIXELS,
-					ScreenRect.h- (Y+1)*BLOCK_HEIGHT_IN_PIXELS,
+internal inline rectangle
+GetGridRect(int32 X, int32 Y, rectangle ScreenRect){
+	return rectangle{X*BLOCK_WIDTH_IN_PIXELS,
+					ScreenRect.H- (Y+1)*BLOCK_HEIGHT_IN_PIXELS,
 					BLOCK_WIDTH_IN_PIXELS,
 					BLOCK_HEIGHT_IN_PIXELS};
 }
 
-internal inline SDL_Rect
-GetGridRectFromScreenCoords(int32 X, int32 Y, SDL_Rect ScreenRect){
+internal inline rectangle
+GetGridRectFromScreenCoords(int32 X, int32 Y, rectangle ScreenRect){
 	vec2i  GridP = GetGridP(X, Y, ScreenRect);
 	return GetGridRect(GridP.X, GridP.Y, ScreenRect);
 }
 
-
 internal inline vec2i
-GetTileGridP(int32 X, int32 Y, SDL_Rect TileWindowRect){
-	return vec2i{(X-TileWindowRect.x)/SOURCE_BLOCK_WIDTH_IN_PIXELS, (Y-TileWindowRect.y)/SOURCE_BLOCK_HEIGHT_IN_PIXELS};
+GetTileGridP(int32 X, int32 Y, rectangle SprieAtlasRect){
+	return vec2i{(X-SprieAtlasRect.X)/SOURCE_BLOCK_WIDTH_IN_PIXELS, (Y-SprieAtlasRect.Y)/SOURCE_BLOCK_HEIGHT_IN_PIXELS};
 }
 
-internal inline SDL_Rect
-GetTileGridRect(int32 X, int32 Y, SDL_Rect TileWindowRect){
-	vec2i GridP = GetTileGridP(X, Y, TileWindowRect);
-	return SDL_Rect{GridP.X*SOURCE_BLOCK_WIDTH_IN_PIXELS,
+internal inline rectangle
+GetTileGridRect(int32 X, int32 Y, rectangle SpriteAtlasRect){
+	vec2i GridP = GetTileGridP(X, Y, SpriteAtlasRect);
+	return rectangle{GridP.X*SOURCE_BLOCK_WIDTH_IN_PIXELS,
 					GridP.Y*SOURCE_BLOCK_WIDTH_IN_PIXELS,
 					SOURCE_BLOCK_WIDTH_IN_PIXELS,
 					SOURCE_BLOCK_HEIGHT_IN_PIXELS};
 }
 
 internal void
-DrawPlayModeElements(game_state *GameState, SDL_Renderer *Renderer, SDL_Rect ScreenOutline){
+DrawPlayModeElements(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline){
 	for(uint32 j = 0; j < GameState->Level.Width; j++){
 		for(uint32 k = 0; k < GameState->Level.Height; k++){
-			SDL_Rect DestRect = GetGridRect(j, k, ScreenOutline);
+			rectangle DestRect = GetGridRect(j, k, ScreenOutline);
 
 			uint32 Value = GameState->Level.Occupancy[j][k];
 			if(Value <= 4 && Value > 1 && Value != 3){
@@ -60,32 +59,31 @@ DrawPlayModeElements(game_state *GameState, SDL_Renderer *Renderer, SDL_Rect Scr
 				}else{
 					TileColor = TILE_COLORS[Value - 1];
 				}
-				SDL_SetRenderDrawColor(Renderer, TileColor.R, TileColor.G, TileColor.B, TileColor.A);
-				SDL_RenderFillRect(Renderer, &DestRect);
-				SDL_SetRenderDrawColor(Renderer, 200, 150, 55, 100);
-				SDL_RenderDrawRect(Renderer, &DestRect);
+
+				FillRect(OffscreenBuffer, DestRect, TileColor);
+				DrawRectOutline(OffscreenBuffer, DestRect, TILE_OUTLINE_COLOR);
 			}
 		}
 	}
 }
 
 internal void
-DrawPlayModeLevel(game_state *GameState, SDL_Renderer *Renderer, SDL_Rect ScreenOutline, int32 StartLayer, int32 EndLayer){
+DrawPlayModeLevel(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline, int32 StartLayer, int32 EndLayer){
 	for(int32 i = StartLayer; i < EndLayer; i++){
 		for(uint32 j = 0; j < GameState->Level.Width; j++){
 			for(uint32 k = 0; k < GameState->Level.Height; k++){
-				SDL_Rect DestRect = GetGridRect(j, k, ScreenOutline);
-				SDL_RenderCopy(Renderer, GameState->TileTexture, &GameState->Level.Tiles[i][j][k].Source, &DestRect);
+				rectangle GridRect = GetGridRect(j, k, ScreenOutline);
+				StretchBitmapOrthogonaly(OffscreenBuffer, GridRect , GameState->SpriteAtlas, GameState->Level.Tiles[i][j][k].Source);
 			}
 		}
 	}
 }
 
 internal void
-DrawEditModeLevel(game_state *GameState, SDL_Renderer *Renderer, SDL_Rect ScreenOutline){
+DrawEditModeLevel(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline){
 	for(uint32 j = 0; j < GameState->Level.Width; j++){
 		for(uint32 k = 0; k < GameState->Level.Height; k++){
-			SDL_Rect DestRect = GetGridRect(j, k, ScreenOutline);
+			rectangle DestRect = GetGridRect(j, k, ScreenOutline);
 
 			uint32 Value = GameState->Level.Occupancy[j][k];
 			if(Value <= 4 && Value > 0){
@@ -93,10 +91,9 @@ DrawEditModeLevel(game_state *GameState, SDL_Renderer *Renderer, SDL_Rect Screen
 				if(Value == 4){
 					 TileColor = (GameState->FruitRemaining == 0) ? TILE_COLORS[Tile_Type_Goal] : TILE_COLORS[Tile_Type_Goal-1];
 				}
-				SDL_SetRenderDrawColor(Renderer, TileColor.R, TileColor.G, TileColor.B, TileColor.A);
-				SDL_RenderFillRect(Renderer, &DestRect);
-				SDL_SetRenderDrawColor(Renderer, 200, 150, 55, 100);
-				SDL_RenderDrawRect(Renderer, &DestRect);
+
+				FillRect(OffscreenBuffer, DestRect, TileColor);
+				DrawRectOutline(OffscreenBuffer, DestRect, TILE_OUTLINE_COLOR);
 			}
 		}
 	}
@@ -113,72 +110,63 @@ CapInt32(int32 a, int32 t, int32 b){
 }
 
 internal void
-DrawTileModeLevelAndUI(game_state *GameState, SDL_Renderer *Renderer, SDL_Rect ScreenOutline){
+DrawTileModeLevelAndUI(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline){
 	for(uint32 j = 0; j < GameState->Level.Width; j++){
 		for(uint32 k = 0; k < GameState->Level.Height; k++){
-			SDL_Rect DestRect = GetGridRect(j, k, ScreenOutline);
+			rectangle DestRect = GetGridRect(j, k, ScreenOutline);
 
 			uint32 Value = GameState->Level.Occupancy[j][k];
 			if(Value <= 4 && Value > 0){
 				color TileColor = TILE_COLORS[Value - 1];
-				SDL_SetRenderDrawColor(Renderer, TileColor.R, TileColor.G, TileColor.B, TileColor.A);
-				SDL_RenderFillRect(Renderer, &DestRect);
-				SDL_SetRenderDrawColor(Renderer, 200, 150, 55, 100);
-				SDL_RenderDrawRect(Renderer, &DestRect);
+				FillRect(OffscreenBuffer, DestRect, TileColor);
+				DrawRectOutline(OffscreenBuffer, DestRect, TILE_OUTLINE_COLOR);
 			}
 		}
 	}
 	for(int32 i = 0; i <= GameState->ActiveLayerIndex; i++){
 		for(uint32 j = 0; j < GameState->Level.Width; j++){
 			for(uint32 k = 0; k < GameState->Level.Height; k++){
-				SDL_Rect DestRect = GetGridRect(j, k, ScreenOutline);
-				SDL_RenderCopy(Renderer, GameState->TileTexture, &GameState->Level.Tiles[i][j][k].Source, &DestRect);
+				rectangle GridRect = GetGridRect(j, k, ScreenOutline);
+				StretchBitmapOrthogonaly(OffscreenBuffer, GridRect, GameState->SpriteAtlas, GameState->Level.Tiles[i][j][k].Source);
 			}
 		}
 	}
-	if(GameState->TileWindowActive){
+	if(GameState->SpriteAtlasActive){
 		color Color = TILEMAP_BACKGROUND_COLORS[GameState->ActiveLayerIndex];
-		SDL_SetRenderDrawColor(Renderer, Color.R, Color.B, Color.B, 100);
-		SDL_RenderFillRect(Renderer, &GameState->TileWindowRect);
-		SDL_RenderCopy(Renderer, GameState->TileTexture, 0, &GameState->TileWindowRect);
+		FillRect(OffscreenBuffer, GameState->SpriteAtlasRect, Color);
+		StretchBitmapOrthogonaly(OffscreenBuffer, GameState->SpriteAtlasRect, GameState->SpriteAtlas, rectangle{0, 0, GameState->SpriteAtlas.Width, GameState->SpriteAtlas.Height});
 	}
 }
 
 internal void
-DrawEditBrush(game_state *GameState, SDL_Renderer *Renderer, SDL_Rect ScreenOutline, int32 MouseX, int32 MouseY){
-	SDL_Rect MouseRect = GetGridRectFromScreenCoords(MouseX, MouseY, ScreenOutline);
+DrawEditBrush(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline, int32 MouseX, int32 MouseY){
+	rectangle MouseRect = GetGridRectFromScreenCoords(MouseX, MouseY, ScreenOutline);
 	if(GameState->ActiveBrush <= 4 && GameState->ActiveBrush > 0){
 		color TileColor = TILE_COLORS[GameState->ActiveBrush - 1];
-		SDL_SetRenderDrawColor(Renderer, TileColor.R, TileColor.G, TileColor.B, TileColor.A);
-		SDL_RenderFillRect(Renderer, &MouseRect);
-		SDL_SetRenderDrawColor(Renderer, 200, 150, 55, 255);
-		SDL_RenderDrawRect(Renderer, &MouseRect);
+		FillRect(OffscreenBuffer, MouseRect, TileColor);
+		DrawRectOutline(OffscreenBuffer, MouseRect, TILE_OUTLINE_COLOR);
 	}else if(GameState->ActiveBrush >= SNAKE_ID_OFFSET && GameState->ActiveBrush < SNAKE_ID_OFFSET + 3){
 		color SnakeColor = SNAKE_COLORS[GameState->ActiveBrush-SNAKE_ID_OFFSET][0];
-		SDL_SetRenderDrawColor(Renderer, SnakeColor.R, SnakeColor.G, SnakeColor.B, SnakeColor.A);
-		SDL_RenderFillRect(Renderer, &MouseRect);
+		FillRect(OffscreenBuffer, MouseRect, SnakeColor);
 	}
 }
 
 internal void
-DrawTileBrush(game_state *GameState, SDL_Renderer *Renderer, SDL_Rect ScreenOutline, int32 MouseX, int32 MouseY){
-	SDL_Rect MouseGridRect = GetGridRectFromScreenCoords(MouseX, MouseY, ScreenOutline);
-	SDL_RenderCopy(Renderer, GameState->TileTexture, &GameState->ActiveTileBrush.Source, &MouseGridRect);
+DrawTileBrush(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline, int32 MouseX, int32 MouseY){
+	rectangle TileBrushRect = GetGridRectFromScreenCoords(MouseX, MouseY, ScreenOutline);
+	StretchBitmapOrthogonaly(OffscreenBuffer, TileBrushRect , GameState->SpriteAtlas, GameState->ActiveTileBrush.Source);
 }
 
 internal void
-DrawSnakes(game_state *GameState, SDL_Renderer *Renderer){
+DrawSnakes(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline){
 	for(uint32 SnakeIndex = 0; SnakeIndex  < GameState->Level.SnakeCount; SnakeIndex++){
 		snake *Snake = &GameState->Level.Snakes[SnakeIndex];
 		for(uint32 p = 0; p < Snake->Length; p++){
 			vec2i PartPos =  Snake->Parts[p].GridP;
-			SDL_Rect CurrentRect =  SDL_Rect{(int32)(PartPos.X*BLOCK_WIDTH_IN_PIXELS),
-									(int32)(SCREEN_HEIGHT - (PartPos.Y+1)*BLOCK_HEIGHT_IN_PIXELS),
-									(int32)BLOCK_WIDTH_IN_PIXELS,
-									(int32)BLOCK_HEIGHT_IN_PIXELS};
+
+			rectangle DestRect = GetGridRect(PartPos.X, PartPos.Y, ScreenOutline);
 			color Color = (p % 2 == 0) ? Snake->Color0 : Snake->Color1;
-			SDL_SetRenderDrawColor(Renderer, Color.R, Color.G, Color.B, Color.A);
-			SDL_RenderFillRect(Renderer, &CurrentRect);
+			FillRect(OffscreenBuffer, DestRect, Color);
 		}
 	}
 }
@@ -228,11 +216,12 @@ InitGameState(game_state *GameState, void *MemoryEnd)
 	GameState->Mode = Game_Mode_Edit;
 	GameState->ActiveLayerIndex = 0;
 	GameState->ActiveBrush = 1;
-	GameState->TileWindowActive = true;
+	GameState->SpriteAtlasActive = true;
 }
 
+#if 0
 internal void
-LoadTileTextureAndAssignDimensions(game_state *GameState, SDL_Renderer *Renderer, char *FileName){
+LoadTileTextureAndAssignDimensions(game_state *GameState, offscreen_buffer OffscreenBuffer, char *FileName){
 	SDL_Texture *TileTexture = DEBUGPlatformLoadImageFromFile(Renderer, FileName);
 	if(TileTexture){
 		GameState->TileTexture = TileTexture;
@@ -241,6 +230,7 @@ LoadTileTextureAndAssignDimensions(game_state *GameState, SDL_Renderer *Renderer
 	}
 	SDL_QueryTexture(GameState->TileTexture, 0, 0, &GameState->TextureWidth, &GameState->TextureHeight);
 }
+#endif
 
 internal void
 ClearVisitedSnakes(game_state *GameState){
@@ -452,7 +442,7 @@ UpdateLogic(game_state *GameState, game_input *Input){
 }
 
 internal void
-EditLevel(level *Level, SDL_Rect ScreenOutline, uint32 *ActiveBrush, game_input *Input){
+EditLevel(level *Level, rectangle ScreenOutline, uint32 *ActiveBrush, game_input *Input){
 	vec2i MouseGridP = GetGridP(Input->MouseX, Input->MouseY, ScreenOutline);
 	if(IsInBounds(MouseGridP.X, MouseGridP.Y, Level->Width, Level->Height)){
 		if(Input->MouseLeft.EndedDown){
@@ -502,13 +492,13 @@ EditLevel(level *Level, SDL_Rect ScreenOutline, uint32 *ActiveBrush, game_input 
 }
 
 internal void
-TileLevel(game_state *GameState, SDL_Rect ScreenOutline, game_input *Input){
+TileLevel(game_state *GameState, rectangle ScreenOutline, game_input *Input){
 	vec2i MouseGridP = GetGridP(Input->MouseX, Input->MouseY, ScreenOutline);
 	if(Input->MouseLeft.EndedDown){
-		vec2i MouseDeltaP = {Input->MouseX-GameState->TileWindowRect.x, Input->MouseY-GameState->TileWindowRect.y};
-		if(GameState->TileWindowActive && (MouseDeltaP.X >= 0 && MouseDeltaP.Y >= 0 && MouseDeltaP.X < GameState->TileWindowRect.w && MouseDeltaP.Y < GameState->TileWindowRect.h)){
+		vec2i MouseDeltaP = {Input->MouseX-GameState->SpriteAtlasRect.X, Input->MouseY-GameState->SpriteAtlasRect.Y};
+		if(GameState->SpriteAtlasActive && (MouseDeltaP.X >= 0 && MouseDeltaP.Y >= 0 && MouseDeltaP.X < GameState->SpriteAtlasRect.W && MouseDeltaP.Y < GameState->SpriteAtlasRect.H)){
 			if(Input->MouseLeft.Changed){
-				GameState->ActiveTileBrush = tile{GetTileGridRect(Input->MouseX, Input->MouseY, GameState->TileWindowRect)};
+				GameState->ActiveTileBrush = tile{GetTileGridRect(Input->MouseX, Input->MouseY, GameState->SpriteAtlasRect)};
 			}
 		}else{
 			GameState->Level.Tiles[GameState->ActiveLayerIndex][MouseGridP.X][MouseGridP.Y] = GameState->ActiveTileBrush;
@@ -518,7 +508,7 @@ TileLevel(game_state *GameState, SDL_Rect ScreenOutline, game_input *Input){
 	}
 
 	if(Input->Space.EndedDown && Input->Space.Changed){
-		GameState->TileWindowActive = !GameState->TileWindowActive;
+		GameState->SpriteAtlasActive = !GameState->SpriteAtlasActive;
 	}
 	if(Input->ArrowLeft.EndedDown && Input->ArrowLeft.Changed){
 		GameState->ActiveLayerIndex = CapInt32(0, GameState->ActiveLayerIndex - 1, LEVEL_MAX_LAYER_COUNT-1);
@@ -528,15 +518,15 @@ TileLevel(game_state *GameState, SDL_Rect ScreenOutline, game_input *Input){
 }
 
 internal void
-UpdateAndRender(game_memory *Memory, platform_state *Platform, game_input *Input)
+UpdateAndRender(game_memory *Memory, offscreen_buffer OffscreenBuffer, game_input *Input)
 {
+	BEGIN_TIMED_BLOCK(UpdateAndRender);
 	game_state *GameState = (game_state*)Memory->BaseAddress;
 	if(GameState->MagicChecksum != 11789){
 		GameState->MagicChecksum = 11789;
 		InitGameState(GameState, (char*)Memory->BaseAddress + Memory->Size);
-		SDL_SetRenderDrawBlendMode(Platform->Renderer, SDL_BLENDMODE_BLEND);
-		LoadTileTextureAndAssignDimensions(GameState, Platform->Renderer, (char*)"tile_sheet.bmp");
-		GameState->TileWindowRect = {0, SCREEN_HEIGHT - GameState->TextureHeight, GameState->TextureWidth, GameState->TextureHeight};
+		GameState->SpriteAtlas = DEBUGPlatformLoadBitmapFromFile((char*)"tile_sheet.bmp");
+		GameState->SpriteAtlasRect = {0, OffscreenBuffer.Height - GameState->SpriteAtlas.Height, GameState->SpriteAtlas.Width, GameState->SpriteAtlas.Height};
 		NewGame(GameState);
 	}
 
@@ -567,36 +557,36 @@ UpdateAndRender(game_memory *Memory, platform_state *Platform, game_input *Input
 		bool32 WriteSuccess = DEBUGPLatformWriteEntireFile((char*)TempName, sizeof(level), &GameState->Level);
 		printf("Save Initiated, (1-success, 0-fail): %d  to %s\n", WriteSuccess, (char*)TempName);
 	}
+
+	rectangle ScreenOutline = {0, 0, OffscreenBuffer.Width, OffscreenBuffer.Height};
 	
 	//Simulation/Editing/Tiling
 	if(GameState->Mode == Game_Mode_Play){
 		UpdateLogic(GameState, Input);
 	}else if(GameState->Mode == Game_Mode_Edit){
-		EditLevel(&GameState->Level, Platform->ScreenOutline, &GameState->ActiveBrush, Input);
+		EditLevel(&GameState->Level, ScreenOutline, &GameState->ActiveBrush, Input);
 	}else{
-		TileLevel(GameState, GameState->TileWindowRect, Input);
+		TileLevel(GameState, GameState->SpriteAtlasRect, Input);
 	}
+
 
 	//Render
-	SDL_SetRenderDrawColor(Platform->Renderer, 81, 180, 240, 255);
-	SDL_RenderClear(Platform->Renderer);
-	SDL_SetRenderDrawColor(Platform->Renderer, 255, 255, 255, 255);
-	SDL_RenderDrawRect(Platform->Renderer, &Platform->ScreenOutline);
-
+	ClearOffscreenBuffer(OffscreenBuffer, color{100, 200, 255, 255});
 	if(GameState->Mode == Game_Mode_Play){
-		DrawPlayModeElements(GameState, Platform->Renderer, Platform->ScreenOutline);
-		DrawPlayModeLevel(GameState, Platform->Renderer, Platform->ScreenOutline, 0, GameState->Level.ForegroundLayerIndex);
-		DrawSnakes(GameState, Platform->Renderer);
-		DrawPlayModeLevel(GameState, Platform->Renderer, Platform->ScreenOutline, GameState->Level.ForegroundLayerIndex, LEVEL_MAX_LAYER_COUNT);
-	} else if(GameState->Mode == Game_Mode_Edit){
-		DrawEditModeLevel(GameState, Platform->Renderer, Platform->ScreenOutline);
-		DrawSnakes(GameState, Platform->Renderer);
-		DrawEditBrush(GameState, Platform->Renderer, Platform->ScreenOutline, Input->MouseX, Input->MouseY);
-	}else if(GameState->Mode == Game_Mode_Tile){
-		DrawTileModeLevelAndUI(GameState, Platform->Renderer, Platform->ScreenOutline);
-		DrawTileBrush(GameState, Platform->Renderer, Platform->ScreenOutline, Input->MouseX, Input->MouseY);
+		DrawPlayModeElements(GameState, OffscreenBuffer, ScreenOutline);
+		DrawPlayModeLevel(GameState, OffscreenBuffer, ScreenOutline, 0, GameState->Level.ForegroundLayerIndex);
+		DrawSnakes(GameState, OffscreenBuffer, ScreenOutline);
+		DrawPlayModeLevel(GameState, OffscreenBuffer, ScreenOutline, GameState->Level.ForegroundLayerIndex, LEVEL_MAX_LAYER_COUNT);
+	}else if(GameState->Mode == Game_Mode_Edit){
+		DrawEditModeLevel(GameState, OffscreenBuffer, ScreenOutline);
+		DrawSnakes(GameState, OffscreenBuffer, ScreenOutline);
+		DrawEditBrush(GameState, OffscreenBuffer, ScreenOutline, Input->MouseX, Input->MouseY);
 	}
-	SDL_RenderPresent(Platform->Renderer);
+	else if(GameState->Mode == Game_Mode_Tile){
+		DrawTileModeLevelAndUI(GameState, OffscreenBuffer, ScreenOutline);
+		DrawTileBrush(GameState, OffscreenBuffer, ScreenOutline, Input->MouseX, Input->MouseY);
+	}
+	DrawRectOutline(OffscreenBuffer, ScreenOutline, color{255, 255, 255, 255});
 }
 
 #endif //GAME_CPP

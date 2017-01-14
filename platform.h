@@ -7,6 +7,8 @@
 #include "globals.h"
 */
 
+#define ArrayCount(Array) sizeof((Array))/sizeof(Array[0])
+
 #define internal static
 #define local_persist static
 #define global_variable static
@@ -65,15 +67,29 @@ struct game_input{
 struct game_memory{
 	void 	*BaseAddress;
 	uint64	Size;
-	//bool32 	IsGameStateInitialized;
+};
+
+struct offscreen_buffer{
+	SDL_Texture *Texture;
+	void 		*Memory;
+	int32 		Width;
+	int32 		Height;
+	int32		Pitch;
+	int32 		BytesPerPixel;
+};
+
+struct loaded_bitmap{
+	void *Texels;
+	int32 Width;
+	int32 Height;
 };
 
 struct platform_state{
 	SDL_Renderer	*Renderer;
 	SDL_Window		*Window;
 	SDL_Event 		Event;
+	offscreen_buffer OffscreenBuffer;
 	Timer 			FPS;
-	SDL_Rect 		ScreenOutline{ 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 	bool32 			Running;
 	bool32			PlaybackStarted;
 	uint32			FrameCount;
@@ -83,10 +99,9 @@ struct debug_read_file_result{
 	void 	*Contents;
 	uint32  ContentsSize;
 };
-
 internal debug_read_file_result DEBUGPlatformReadEntireFile(char *Filename);
 internal void DEBUGPlatformFreeFileMemory(void *Memory);
 internal bool32 DEBUGPLatformWriteEntireFile(char *Filename, uint64 MemorySize, void *Memory);
-internal SDL_Texture *DEBUGPlatformLoadImageFromFile(SDL_Renderer *Renderer, char *FileName);
+internal loaded_bitmap DEBUGPlatformLoadBitmapFromFile(char *FileName);
 
 #endif //PLATFORM_H

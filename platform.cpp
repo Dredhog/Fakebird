@@ -8,6 +8,8 @@
 #include "timer.h"
 #include "timer.cpp"
 #include "platform.h"
+#include "rendering.h"
+#include "rendering.cpp"
 #include "game.h"
 #include "game.cpp"
 #include "immintrin.h"
@@ -32,25 +34,61 @@ InitPlatform(platform_state *Platform)
 		printf("Platform: Window creation error: %s\n", SDL_GetError());
 		return false;
 	}
-	if ((Platform->Renderer = SDL_CreateRenderer(Platform->Window, -1, SDL_RENDERER_ACCELERATED)) == NULL) {
+	if ((Platform->Renderer = SDL_CreateRenderer(Platform->Window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC)) == NULL) {
 		printf("Platform: Renderer creation error: %s\n", SDL_GetError());
 		return false;
 	}
 	Platform->Running = true;
+
+	Platform->OffscreenBuffer.Texture = SDL_CreateTexture(Platform->Renderer,
+											SDL_PIXELFORMAT_RGBA8888,
+											SDL_TEXTUREACCESS_STREAMING,
+											SCREEN_WIDTH,
+											SCREEN_HEIGHT);
+	if (Platform->OffscreenBuffer.Texture == NULL){
+		printf("Platform: Offscreen Buffer texture creation error: %s\n", SDL_GetError());
+		return false;
+	}
+	Platform->OffscreenBuffer.BytesPerPixel = sizeof(uint32);
+	Platform->OffscreenBuffer.Width = SCREEN_WIDTH;
+	Platform->OffscreenBuffer.Height = SCREEN_HEIGHT;
+	Platform->OffscreenBuffer.Pitch = SCREEN_WIDTH * sizeof(uint32);
+	Platform->OffscreenBuffer.Memory = malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint32));
+	assert(Platform->OffscreenBuffer.Memory);
 	return true;
 }
 
 uint32 SafeTruncateUint64(Uint64 Value){
-	assert(Value <= 0xFFFFFFFF);
+	assert(Value <= 0xffffffff);
 	uint32 Result = (uint32)Value;
 	return Result;
 }
 
+internal void
+ResizeOffscreenBuffer(SDL_Renderer *Renderer, offscreen_buffer *Buffer, int32 Width, int32 Height){
+	if (Buffer->Memory){
+		free(Buffer->Memory);
+	}
+	if (Buffer->Texture){
+		SDL_DestroyTexture(Buffer->Texture);
+	}
+	Buffer->Texture = SDL_CreateTexture(Renderer,
+								SDL_PIXELFORMAT_RGBA8888,
+								SDL_TEXTUREACCESS_STREAMING,
+								Width,
+								Height);
+	Buffer->Width = Width;
+	Buffer->Height = Height;
+	Buffer->BytesPerPixel = sizeof(uint32);
+	Buffer->Pitch = Buffer->Width * int32(sizeof(uint32));
+	Buffer->Memory = malloc(Buffer->Width*Buffer->Height*sizeof(uint32));
+}
+
 
 internal debug_read_file_result
-DEBUGPlatformReadEntireFile(char *Filename){
+DEBUGPlatformReadEntireFile(char *FileName){
 	debug_read_file_result Result = {};
-	int FileHandle = open(Filename, O_RDONLY);
+	int FileHandle = open(FileName, O_RDONLY);
 	if(FileHandle == -1){
 		return Result;
 	}
@@ -69,10 +107,10 @@ DEBUGPlatformReadEntireFile(char *Filename){
 		return Result;
 	}
 	
-	uint64 BytesToRead = Result.ContentsSize;
+	uint64 BytesStoread = Result.ContentsSize;
 	uint8 *NextByteLocation = (uint8*)Result.Contents;
-	while(BytesToRead){
-		int64 BytesRead = read(FileHandle, NextByteLocation, BytesToRead);
+	while(BytesStoread){
+		int64 BytesRead = read(FileHandle, NextByteLocation, BytesStoread);
 		if(BytesRead == -1 ){
 			free(Result.Contents);
 			Result.Contents = 0;
@@ -80,10 +118,27 @@ DEBUGPlatformReadEntireFile(char *Filename){
 			close(FileHandle);
 			return Result;
 		}
-		BytesToRead -= BytesRead;
+		BytesStoread -= BytesRead;
 		NextByteLocation += BytesRead;
 	}
 	close(FileHandle);
+	return Result;
+}
+
+internal loaded_bitmap
+DEBUGPlatformLoadBitmapFromFile(char *FileName){
+	loaded_bitmap Result = {};
+	SDL_Surface *ImageSurface = SDL_LoadBMP(FileName);
+	if(ImageSurface){
+		Result.Texels = ImageSurface->pixels;
+		Result.Width = ImageSurface->w;
+		Result.Height = ImageSurface->h;
+
+		assert(Result.Width > 0 && Result.Height > 0);
+	}else{
+		printf("Platform: Window creation error: %s\n", SDL_GetError());
+	}
+
 	return Result;
 }
 
@@ -124,20 +179,8 @@ AllocateGameMemory(game_memory *GameMemory) {
 	//GameMemory->BaseAddress = VirtualAlloc(BaseAddress, GameMemory->Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 }
 
-internal SDL_Texture *DEBUGPlatformLoadImageFromFile(SDL_Renderer *Renderer, char *FileName){
-	SDL_Texture *Result = {};
-	SDL_Surface *ImageSurface = SDL_LoadBMP(FileName);
-
-	if(ImageSurface){
-		Result = SDL_CreateTextureFromSurface(Renderer, ImageSurface);
-	}else{
-		printf("Platform: Window creation error: %s\n", SDL_GetError());
-	}
-	return Result;
-}
-
 internal bool32
-ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event)
+ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event, platform_state *Platform)
 {
 	*NewInput = *OldInput;
 	while (SDL_PollEvent(Event) != 0)
@@ -216,6 +259,14 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event)
 				NewInput->MouseRight.EndedDown = false;
 			}
 			break;
+		case SDL_WINDOWEVENT:
+			if (Event->window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+				int32 NewWidth, NewHeight;
+				SDL_Window *Window = SDL_GetWindowFromID(Event->window.windowID); 
+				SDL_GetWindowSize(Window, &NewWidth, &NewHeight);
+				ResizeOffscreenBuffer(Platform->Renderer, &Platform->OffscreenBuffer, NewWidth, NewHeight);
+			}
+			break;
 		}
 	}
 	SDL_GetMouseState(&NewInput->MouseX, &NewInput->MouseY);
@@ -235,6 +286,12 @@ CleanUp(platform_state *Platform)
 
 	SDL_DestroyRenderer(Platform->Renderer);
 	Platform->Renderer = nullptr;
+
+	SDL_DestroyTexture(Platform->OffscreenBuffer.Texture);
+	Platform->OffscreenBuffer.Texture = nullptr;
+
+	free(Platform->OffscreenBuffer.Memory);
+
 	SDL_Quit();
 }
 
@@ -257,7 +314,7 @@ int main(int Count, char *Arguments[])
 	{
 		Platform.FPS.start();
 
-		Platform.Running = ProcessInput(&OldInput, &NewInput, &Platform.Event);
+		Platform.Running = ProcessInput(&OldInput, &NewInput, &Platform.Event, &Platform);
 
 		if (NewInput.p.EndedDown && NewInput.p.Changed) {
 			Platform.PlaybackStarted = !Platform.PlaybackStarted;
@@ -277,18 +334,21 @@ int main(int Count, char *Arguments[])
 			PushPlaybackBuffer(&PlaybackBuffer, &NewInput, GameMemory.BaseAddress, Platform.FrameCount);
 		}
 
-		UpdateAndRender(&GameMemory, &Platform, &NewInput);
-
+		UpdateAndRender(&GameMemory, Platform.OffscreenBuffer, &NewInput);
+		SDL_UpdateTexture(Platform.OffscreenBuffer.Texture, 0, Platform.OffscreenBuffer.Memory, Platform.OffscreenBuffer.Pitch);
+		SDL_RenderCopy(Platform.Renderer, Platform.OffscreenBuffer.Texture, 0, 0);
+		SDL_RenderPresent(Platform.Renderer);
+		
 		SDL_Delay(FRAME_DURATION - ((Platform.FPS.get_time() <= FRAME_DURATION) ? Platform.FPS.get_time() : FRAME_DURATION));
 		Platform.FPS.update_avg_fps();
 
-		//printf("fps: %f,\n", Platform.FPS.get_average_fps());
 #if DEBUG_PROFILING
-		for(uint32 i = 0; i < DEBUG_Last; i++){
-			printf("%35s:%15lucy,%10lucy/op,%10.2f\n", DEBUG_TABLE_NAMES[i], DEBUG_CYCLE_TABLE[i].CycleCount, DEBUG_CYCLE_TABLE[i].CycleCount/DEBUG_CYCLE_TABLE[i].Calls, 100.0 * (real64)DEBUG_CYCLE_TABLE[i].CycleCount /(real64)DEBUG_CYCLE_TABLE[0].CycleCount);
+		printf("fps: %f,\n", Platform.FPS.get_average_fps());
+		for(uint32 i = 0; i < ArrayCount(DEBUG_TABLE_NAMES); i++){
+			printf("%35s:%15lucy,%10lucy/op,%10.2f\n", DEBUG_TABLE_NAMES[i], DEBUG_CYCLE_TABLE[i].CycleCount, DEBUG_CYCLE_TABLE[i].CycleCount/DEBUG_CYCLE_TABLE[i].Calls, 100.0 * (real64)DEBUG_CYCLE_TABLE[i].CycleCount /(real64)DEBUG_CYCLE_TABLE[DEBUG_UpdateAndRender].CycleCount);
 		}
+		printf("\n");
 #endif
-		//printf("\n");
 
 		OldInput = NewInput;
 		Platform.FrameCount++;

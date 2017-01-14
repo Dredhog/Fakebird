@@ -7,21 +7,11 @@
 #include "globals.h"
 */
 
-struct color{
-	union{
-		struct{
-			uint8 R;
-			uint8 G;
-			uint8 B;
-			uint8 A;
-		};
-		uint32 All;
-	};
-};
-
 static color SNAKE_COLORS[3][2] = 	{{color{255, 10, 10, 255}, color{255, 76, 48, 255}},
 									{color{0, 76, 255, 255}, color{0, 136, 255, 255}},
 									{color{24, 209, 31, 255}, color{71, 219, 72, 255}}};
+
+static color TILE_OUTLINE_COLOR = {200, 150, 55, 100};
 
 static color TILE_COLORS[5] = {	{154, 120, 55, 255},
 							   	{200, 200, 55, 255},
@@ -53,7 +43,7 @@ enum basic_tyle_type{
 };
 
 struct tile{
-	SDL_Rect Source;
+	rectangle Source;
 };
 
 struct level{
@@ -91,43 +81,41 @@ struct game_state{
 	vec2i	MouseSpriteSheetP;
 
 	tile	ActiveTileBrush;
-	SDL_Rect TileWindowRect;
-	bool32 TileWindowActive;
+	rectangle SpriteAtlasRect;
+	bool32 SpriteAtlasActive;
 	int32 ActiveLayerIndex;
 
-	SDL_Texture	*TileTexture;
-	int32 TextureWidth;
-	int32 TextureHeight;
+	loaded_bitmap SpriteAtlas;
 
 	game_mode Mode;
 	uint32	MagicChecksum;
 };
 
 static void
-UpdateAndRender(game_memory *Memory, platform_state *Platform, game_input *Input);
+UpdateAndRender(game_memory *Memory, offscreen_buffer OffscreenBuffer, game_input *Input);
 
 #define DEBUG_PROFILING 0
 
 #if DEBUG_PROFILING 
 enum{
 	DEBUG_UpdateAndRender,
+	DEBUG_Rendering,
 	DEBUG_Simulation,
-	DEBUG_SwapBuffer,
-	DEBUG_Last,
 };
 struct debug_cycle_counter {
 	uint64 CycleCount;
 	uint64 Calls;
 };
-debug_cycle_counter DEBUG_CYCLE_TABLE[DEBUG_Last] = {};
+char DEBUG_TABLE_NAMES[][40] = {
+	"UpdateAndRender",
+	"Rendering",
+	"Simulation",
+};
+
+debug_cycle_counter DEBUG_CYCLE_TABLE[ArrayCount(DEBUG_TABLE_NAMES)];
 #define BEGIN_TIMED_BLOCK(ID) uint64 StartCycleCount##ID = _rdtsc();
 #define END_TIMED_BLOCK(ID) DEBUG_CYCLE_TABLE[DEBUG_##ID].CycleCount += _rdtsc() - StartCycleCount##ID; \
 							DEBUG_CYCLE_TABLE[DEBUG_##ID].Calls++;
-char DEBUG_TABLE_NAMES[][40] = {
-	"UpdateAndRender",
-	"Simulation",
-	"SwapBuffer",
-};
 #else
 #define BEGIN_TIMED_BLOCK(ID)
 #define END_TIMED_BLOCK(ID)
