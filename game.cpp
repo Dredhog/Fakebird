@@ -19,6 +19,7 @@ IsInBounds(int32 i, int32 j, int32 MaxI, int32 MaxJ){
 	}	
 	return true;
 }
+
 internal inline bool32
 IsPointInBounds(vec2i P, int32 MaxI, int32 MaxJ){
 	return IsInBounds(P.X, P.Y, MaxI, MaxJ);
@@ -26,15 +27,15 @@ IsPointInBounds(vec2i P, int32 MaxI, int32 MaxJ){
 
 internal inline vec2i
 GetGridP(int32 X, int32 Y, rectangle ScreenRect){
-	return vec2i{(X-ScreenRect.X)/BLOCK_WIDTH_IN_PIXELS, (ScreenRect.H - (Y-ScreenRect.Y))/BLOCK_HEIGHT_IN_PIXELS};
+	return vec2i{(X-ScreenRect.MinX)/BLOCK_WIDTH_IN_PIXELS, ((ScreenRect.MaxY - ScreenRect.MinY) - (Y-ScreenRect.MinY))/BLOCK_HEIGHT_IN_PIXELS};
 }
 
 internal inline rectangle
 GetGridRect(int32 X, int32 Y, rectangle ScreenRect){
 	return rectangle{X*BLOCK_WIDTH_IN_PIXELS,
-					ScreenRect.H- (Y+1)*BLOCK_HEIGHT_IN_PIXELS,
-					BLOCK_WIDTH_IN_PIXELS,
-					BLOCK_HEIGHT_IN_PIXELS};
+					ScreenRect.MaxY- (Y+1)*BLOCK_HEIGHT_IN_PIXELS,
+					(X+1)*BLOCK_WIDTH_IN_PIXELS,
+					ScreenRect.MaxY - Y*BLOCK_HEIGHT_IN_PIXELS};
 }
 
 internal inline rectangle
@@ -45,7 +46,7 @@ GetGridRectFromScreenCoords(int32 X, int32 Y, rectangle ScreenRect){
 
 internal inline vec2i
 GetTileGridP(int32 X, int32 Y, rectangle SprieAtlasRect){
-	return vec2i{(X-SprieAtlasRect.X)/SOURCE_BLOCK_WIDTH_IN_PIXELS, (Y-SprieAtlasRect.Y)/SOURCE_BLOCK_HEIGHT_IN_PIXELS};
+	return vec2i{(X-SprieAtlasRect.MinX)/SOURCE_BLOCK_WIDTH_IN_PIXELS, (Y-SprieAtlasRect.MinY)/SOURCE_BLOCK_HEIGHT_IN_PIXELS};
 }
 
 internal inline rectangle
@@ -53,8 +54,8 @@ GetTileGridRect(int32 X, int32 Y, rectangle SpriteAtlasRect){
 	vec2i GridP = GetTileGridP(X, Y, SpriteAtlasRect);
 	return rectangle{GridP.X*SOURCE_BLOCK_WIDTH_IN_PIXELS,
 					GridP.Y*SOURCE_BLOCK_WIDTH_IN_PIXELS,
-					SOURCE_BLOCK_WIDTH_IN_PIXELS,
-					SOURCE_BLOCK_HEIGHT_IN_PIXELS};
+					(GridP.X+1)*SOURCE_BLOCK_WIDTH_IN_PIXELS,
+					(GridP.Y+1)*SOURCE_BLOCK_HEIGHT_IN_PIXELS};
 }
 
 internal void
@@ -85,7 +86,7 @@ DrawPlayModeLevel(game_state *GameState, offscreen_buffer OffscreenBuffer, recta
 		for(uint32 j = 0; j < GameState->Level.Width; j++){
 			for(uint32 k = 0; k < GameState->Level.Height; k++){
 				rectangle GridRect = GetGridRect(j, k, ScreenOutline);
-				StretchBitmapOrthogonaly(OffscreenBuffer, GridRect , GameState->SpriteAtlas, GameState->Level.Tiles[i][j][k].Source);
+				StretchBitmapOrthogonaly(OffscreenBuffer, GameState->SpriteAtlas, GridRect, GameState->Level.Tiles[i][j][k].Source);
 			}
 		}
 	}
@@ -139,14 +140,14 @@ DrawTileModeLevelAndUI(game_state *GameState, offscreen_buffer OffscreenBuffer, 
 		for(uint32 j = 0; j < GameState->Level.Width; j++){
 			for(uint32 k = 0; k < GameState->Level.Height; k++){
 				rectangle GridRect = GetGridRect(j, k, ScreenOutline);
-				StretchBitmapOrthogonaly(OffscreenBuffer, GridRect, GameState->SpriteAtlas, GameState->Level.Tiles[i][j][k].Source);
+				StretchBitmapOrthogonaly(OffscreenBuffer, GameState->SpriteAtlas, GridRect, GameState->Level.Tiles[i][j][k].Source);
 			}
 		}
 	}
 	if(GameState->SpriteAtlasActive){
 		color Color = TILEMAP_BACKGROUND_COLORS[GameState->ActiveLayerIndex];
 		FillRect(OffscreenBuffer, GameState->SpriteAtlasRect, Color);
-		StretchBitmapOrthogonaly(OffscreenBuffer, GameState->SpriteAtlasRect, GameState->SpriteAtlas, rectangle{0, 0, GameState->SpriteAtlas.Width, GameState->SpriteAtlas.Height});
+		StretchBitmapOrthogonaly(OffscreenBuffer, GameState->SpriteAtlas, GameState->SpriteAtlasRect, rectangle{0, 0, GameState->SpriteAtlas.Width, GameState->SpriteAtlas.Height});
 	}
 }
 
@@ -166,7 +167,7 @@ DrawEditBrush(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle
 internal void
 DrawTileBrush(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline, int32 MouseX, int32 MouseY){
 	rectangle TileBrushRect = GetGridRectFromScreenCoords(MouseX, MouseY, ScreenOutline);
-	StretchBitmapOrthogonaly(OffscreenBuffer, TileBrushRect , GameState->SpriteAtlas, GameState->ActiveTileBrush.Source);
+	StretchBitmapOrthogonaly(OffscreenBuffer, GameState->SpriteAtlas, TileBrushRect, GameState->ActiveTileBrush.Source);
 }
 
 internal void
@@ -219,17 +220,6 @@ DeleteSnake(level *Level, uint32 SnakeID){
 	}
 }
 
-internal void
-InitGameState(game_state *GameState, void *MemoryEnd)
-{
-	assert(GameState);
-	char *BaseAddress = ((char*)GameState); 
-	assert((BaseAddress + sizeof(GameState)) <= (char*)MemoryEnd); 
-	GameState->Mode = Game_Mode_Edit;
-	GameState->ActiveLayerIndex = 0;
-	GameState->ActiveBrush = 1;
-	GameState->SpriteAtlasActive = true;
-}
 
 internal void
 ClearVisitedSnakes(game_state *GameState){
@@ -241,13 +231,35 @@ ClearVisitedSnakes(game_state *GameState){
 }
 
 internal void
+InitGameState(game_state *GameState, void *MemoryEnd)
+{
+	assert(GameState);
+	char *BaseAddress = ((char*)GameState); 
+	assert((BaseAddress + sizeof(GameState)) <= (char*)MemoryEnd); 
+	debug_read_file_result GameInfoHandle = DEBUGPlatformReadEntireFile((char*)"game_state");
+	if(GameInfoHandle.ContentsSize >= sizeof(game_state)){
+		*GameState = *((game_state*)GameInfoHandle.Contents);
+	}
+	GameState->Mode = Game_Mode_Play;
+	GameState->ActiveLayerIndex = 0;
+	GameState->ActiveBrush = 1;
+	GameState->LevelCount = 1;
+	GameState->SpriteAtlasActive = true;
+	GameState->CurrentLevelName[0] = '0';
+	GameState->CurrentLevelName[1] = '0';
+	GameState->SpriteAtlas = DEBUGPlatformLoadBitmapFromFile((char*)"tile_sheet.bmp");//(NOTE): Add success check
+}
+
+internal void
 NewGame(game_state *GameState)
 {
-	debug_read_file_result LevelHandle = DEBUGPlatformReadEntireFile((char*)TempName);
+	GameState->CurrentLevelName[0] = (char)((GameState->LevelIndex/10)+48);
+	GameState->CurrentLevelName[1] = (char)((GameState->LevelIndex%10)+48);
+	debug_read_file_result LevelHandle = DEBUGPlatformReadEntireFile(&GameState->CurrentLevelName[0]);
 	if(LevelHandle.ContentsSize){
 		memcpy(&GameState->Level, LevelHandle.Contents, LevelHandle.ContentsSize);
 		DEBUGPlatformFreeFileMemory(LevelHandle.Contents);
-GameState->FruitRemaining = 0;
+		GameState->FruitRemaining = 0;
 		for(uint32 i = 0; i < GameState->Level.Width; i++){
 			for(uint32 j = 0; j < GameState->Level.Height; j++){
 				uint32 Value = GameState->Level.Occupancy[i][j];
@@ -401,7 +413,7 @@ UpdateLogic(game_state *GameState, game_input *Input){
 			if(GameState->Level.SnakeCount > 0 && SnakeID == GameState->Player->SnakeID){
 				GameState->Player = &GameState->Level.Snakes[0];
 			}else if(GameState->Level.SnakeCount == 0){
-				GameState->LevelIndex = (GameState->LevelIndex+1)%LEVEL_COUNT;
+				GameState->LevelIndex = (GameState->LevelIndex+1)%GameState->LevelCount;
 				NewGame(GameState);
 			}
 			return;
@@ -427,8 +439,8 @@ UpdateLogic(game_state *GameState, game_input *Input){
 		}
 	}
 
-	if(GameState->Level.Occupancy[GameState->PortalP.X][GameState->PortalP.Y] == Tile_Type_Empty){
-		GameState->Level.Occupancy[GameState->PortalP.X][GameState->PortalP.Y] = Tile_Type_Goal;
+	if(Level->Occupancy[GameState->PortalP.X][GameState->PortalP.Y] == Tile_Type_Empty){
+		Level->Occupancy[GameState->PortalP.X][GameState->PortalP.Y] = Tile_Type_Goal;
 	}
 }
 
@@ -510,13 +522,10 @@ TileLevel(game_state *GameState, rectangle ScreenOutline, rectangle GameBoardRec
 internal void
 UpdateAndRender(game_memory *Memory, offscreen_buffer OffscreenBuffer, game_input *Input)
 {
-	BEGIN_TIMED_BLOCK(UpdateAndRender);
 	game_state *GameState = (game_state*)Memory->BaseAddress;
 	if(GameState->MagicChecksum != 11789){
 		GameState->MagicChecksum = 11789;
 		InitGameState(GameState, (char*)Memory->BaseAddress + Memory->Size);
-		GameState->SpriteAtlas = DEBUGPlatformLoadBitmapFromFile((char*)"tile_sheet.bmp");
-		GameState->SpriteAtlasRect = {0, OffscreenBuffer.Height - GameState->SpriteAtlas.Height, GameState->SpriteAtlas.Width, GameState->SpriteAtlas.Height};
 		NewGame(GameState);
 	}
 
@@ -531,7 +540,7 @@ UpdateAndRender(game_memory *Memory, offscreen_buffer OffscreenBuffer, game_inpu
 	}
 	if(GameStateChanged){
 		if(GameState->Mode != Game_Mode_Play){
-			debug_read_file_result LevelHandle = DEBUGPlatformReadEntireFile((char*)TempName);
+			debug_read_file_result LevelHandle = DEBUGPlatformReadEntireFile(&GameState->CurrentLevelName[0]);
 			if(LevelHandle.ContentsSize){
 				memcpy(&GameState->Level, LevelHandle.Contents, LevelHandle.ContentsSize);
 				DEBUGPlatformFreeFileMemory(LevelHandle.Contents);
@@ -544,38 +553,44 @@ UpdateAndRender(game_memory *Memory, offscreen_buffer OffscreenBuffer, game_inpu
 		if(GameState->Mode == Game_Mode_Tile){
 			GameState->Level.ForegroundLayerIndex = GameState->ActiveLayerIndex;
 		}
-		bool32 WriteSuccess = DEBUGPLatformWriteEntireFile((char*)TempName, sizeof(level), &GameState->Level);
-		printf("Save Initiated, (1-success, 0-fail): %d  to %s\n", WriteSuccess, (char*)TempName);
+		bool32 WriteSuccess = DEBUGPLatformWriteEntireFile(&GameState->CurrentLevelName[0], sizeof(level), &GameState->Level);
+		printf("Save Initiated, (1-success, 0-fail): %d  to %s\n", WriteSuccess, &GameState->CurrentLevelName[0]);
 	}
 
 	rectangle ScreenOutline = {0, 0, OffscreenBuffer.Width, OffscreenBuffer.Height};
-	rectangle GameBoardRect = {0, OffscreenBuffer.Height - LEVEL_MAX_HEIGHT*BLOCK_HEIGHT_IN_PIXELS, LEVEL_MAX_WIDTH*BLOCK_WIDTH_IN_PIXELS, LEVEL_MAX_HEIGHT*BLOCK_HEIGHT_IN_PIXELS};
-	GameState->SpriteAtlasRect = {0, OffscreenBuffer.Height - GameState->SpriteAtlas.Height, GameState->SpriteAtlas.Width, GameState->SpriteAtlas.Height};
-	
-	//Simulation/Editing/Tiling
-	if(GameState->Mode == Game_Mode_Play){
-		UpdateLogic(GameState, Input);
-	}else if(GameState->Mode == Game_Mode_Edit){
-		EditLevel(&GameState->Level, ScreenOutline, &GameState->ActiveBrush, Input);
-	}else{
-		TileLevel(GameState, ScreenOutline, GameBoardRect, Input);
+	rectangle GameBoardRect = {0, OffscreenBuffer.Height - LEVEL_MAX_HEIGHT*BLOCK_HEIGHT_IN_PIXELS, LEVEL_MAX_WIDTH*BLOCK_WIDTH_IN_PIXELS, OffscreenBuffer.Height};
+	GameState->SpriteAtlasRect = {0, OffscreenBuffer.Height - GameState->SpriteAtlas.Height, GameState->SpriteAtlas.Width, OffscreenBuffer.Height};
+
+	switch(GameState->Mode){
+		case Game_Mode_Play:
+			UpdateLogic(GameState, Input);
+		break;
+		case Game_Mode_Edit:
+			EditLevel(&GameState->Level, ScreenOutline, &GameState->ActiveBrush, Input);
+		break;
+		case Game_Mode_Tile:
+			TileLevel(GameState, ScreenOutline, GameBoardRect, Input);
+		break;
 	}
 
 	//Render
 	ClearOffscreenBuffer(OffscreenBuffer, color{100, 200, 255, 255});
-	if(GameState->Mode == Game_Mode_Play){
-		DrawPlayModeElements(GameState, OffscreenBuffer, ScreenOutline);
-		DrawPlayModeLevel(GameState, OffscreenBuffer, ScreenOutline, 0, GameState->Level.ForegroundLayerIndex);
-		DrawSnakes(GameState, OffscreenBuffer, ScreenOutline);
-		DrawPlayModeLevel(GameState, OffscreenBuffer, ScreenOutline, GameState->Level.ForegroundLayerIndex, LEVEL_MAX_LAYER_COUNT);
-	}else if(GameState->Mode == Game_Mode_Edit){
-		DrawEditModeLevel(GameState, OffscreenBuffer, ScreenOutline);
-		DrawSnakes(GameState, OffscreenBuffer, ScreenOutline);
-		DrawEditBrush(GameState, OffscreenBuffer, ScreenOutline, Input->MouseX, Input->MouseY);
-	}
-	else if(GameState->Mode == Game_Mode_Tile){
-		DrawTileModeLevelAndUI(GameState, OffscreenBuffer, ScreenOutline);
-		DrawTileBrush(GameState, OffscreenBuffer, ScreenOutline, Input->MouseX, Input->MouseY);
+	switch(GameState->Mode){
+		case Game_Mode_Play:
+			DrawPlayModeElements(GameState, OffscreenBuffer, ScreenOutline);
+			DrawPlayModeLevel(GameState, OffscreenBuffer, ScreenOutline, 0, GameState->Level.ForegroundLayerIndex);
+			DrawSnakes(GameState, OffscreenBuffer, ScreenOutline);
+			DrawPlayModeLevel(GameState, OffscreenBuffer, ScreenOutline, GameState->Level.ForegroundLayerIndex, LEVEL_MAX_LAYER_COUNT);
+		break;
+		case Game_Mode_Edit:
+			DrawEditModeLevel(GameState, OffscreenBuffer, ScreenOutline);
+			DrawSnakes(GameState, OffscreenBuffer, ScreenOutline);
+			DrawEditBrush(GameState, OffscreenBuffer, ScreenOutline, Input->MouseX, Input->MouseY);
+		break;
+		case Game_Mode_Tile:
+			DrawTileModeLevelAndUI(GameState, OffscreenBuffer, ScreenOutline);
+			DrawTileBrush(GameState, OffscreenBuffer, ScreenOutline, Input->MouseX, Input->MouseY);
+		break;
 	}
 	DrawRectOutline(OffscreenBuffer, GameBoardRect, color{255, 255, 255, 255});
 }

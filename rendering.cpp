@@ -3,6 +3,10 @@
 
 internal void 
 ClearOffscreenBuffer(offscreen_buffer Buffer, color FillColor){
+	BEGIN_TIMED_BLOCK(ClearOffscreenBuffer);
+#if 1
+	memset(Buffer.Memory, 200, Buffer.Width*Buffer.Height*sizeof(4));
+#else
 	FillColor = color{FillColor.R, FillColor.G, FillColor.B, FillColor.A};
 	for(int32 Y = 0; Y < Buffer.Height; Y++){
 		color *Pixels = (color*)((uint8*)Buffer.Memory + Y*Buffer.Pitch);
@@ -11,6 +15,8 @@ ClearOffscreenBuffer(offscreen_buffer Buffer, color FillColor){
 			Pixels++;
 		}
 	}
+#endif
+	END_TIMED_BLOCK(ClearOffscreenBuffer);
 }
 
 internal inline int32
@@ -31,7 +37,7 @@ MaxInt32(int32 a, int32 b){
 
 internal bool
 IsInsideRect(int32 X, int32 Y, rectangle Rect){
-	if(X >= Rect.X && X < Rect.X+Rect.W && Y >= Rect.Y && Y < Rect.Y+Rect.H){
+	if(X >= Rect.MinX && X < Rect.MaxX && Y >= Rect.MinY && Y < Rect.MaxY){
 		return true;
 	}
 	return false;
@@ -45,15 +51,19 @@ IsPointInsideRect(vec2i P, rectangle Rect){
 internal void
 FillRect(offscreen_buffer Buffer, rectangle Rect, color FillColor){
 	FillColor = color{FillColor.R, FillColor.G, FillColor.B, FillColor.A};
-	int32 MinX = MaxInt32(Rect.X, 0);
-	int32 MinY = MaxInt32(Rect.Y, 0);
-	int32 MaxX = MinInt32(Rect.X+Rect.W, (int32)Buffer.Width);
-	int32 MaxY = MinInt32(Rect.Y+Rect.H, (int32)Buffer.Height);
+	int32 MinX = MaxInt32(Rect.MinX, 0);
+	int32 MinY = MaxInt32(Rect.MinY, 0);
+	int32 MaxX = MinInt32(Rect.MaxX, (int32)Buffer.Width);
+	int32 MaxY = MinInt32(Rect.MaxY, (int32)Buffer.Height);
 
 	for(int32 Y = MinY; Y < MaxY; Y++){
 		color *Pixels = (color*)((uint8*)Buffer.Memory + Y*Buffer.Pitch);
 		for(int32 X = MinX; X < MaxX; X++){
-			*(Pixels+X) = FillColor;
+			color *DestPixel = Pixels+X;
+			real32 t = ((real32)FillColor.A)/255.0f;
+			DestPixel->R = (uint8)(DestPixel->R*(1.0f-t) + FillColor.R*t);
+			DestPixel->G = (uint8)(DestPixel->G*(1.0f-t) + FillColor.G*t);
+			DestPixel->B = (uint8)(DestPixel->B*(1.0f-t) + FillColor.B*t);
 		}
 	}
 }
@@ -62,50 +72,51 @@ internal void
 DrawRectOutline(offscreen_buffer Buffer, rectangle Rect, color FillColor){
 	FillColor = color{FillColor.R, FillColor.G, FillColor.B, FillColor.A};
 	//top line
-	if(Rect.Y >= 0 && Rect.Y < Buffer.Height){
-		int32 MinX = MaxInt32(Rect.X, 0);
-		int32 MaxX = MinInt32(Rect.X+Rect.W, Buffer.Width);
+	if(Rect.MinY >= 0 && Rect.MinY < Buffer.Height){
+		int32 MinX = MaxInt32(Rect.MinX, 0);
+		int32 MaxX = MinInt32(Rect.MaxX, Buffer.Width);
 
-		color *Color = (color*)Buffer.Memory + Rect.Y*Buffer.Width;
+		color *Color = (color*)Buffer.Memory + Rect.MinY*Buffer.Width;
 		for(int32 X = MinX; X < MaxX; X++){
 			*(Color + X) = FillColor;
 		}
 	}
 	//bottom line
-	if(Rect.Y+Rect.H-1 >= 0 && Rect.Y+Rect.H-1 < Buffer.Height){
-		int32 MinX = MaxInt32(Rect.X, 0);
-		int32 MaxX = MinInt32(Rect.X+Rect.W, Buffer.Width);
+	if(Rect.MaxY-1 >= 0 && Rect.MaxY-1 < Buffer.Height){
+		int32 MinX = MaxInt32(Rect.MinX, 0);
+		int32 MaxX = MinInt32(Rect.MaxX, Buffer.Width);
 
-		color *Color = (color*)Buffer.Memory + (Rect.Y+Rect.H-1)*Buffer.Width;
+		color *Color = (color*)Buffer.Memory + (Rect.MaxY-1)*Buffer.Width;
 		for(int32 X = MinX; X < MaxX; X++){
 			*(Color + X) = FillColor;
 		}
 
 	}
 	//left line
-	if(Rect.X >= 0 && Rect.X < Buffer.Width){
-		int32 MinY = MaxInt32(Rect.Y, 0);
-		int32 MaxY = MinInt32(Rect.Y+Rect.H, Buffer.Height);
+	if(Rect.MinX >= 0 && Rect.MinX < Buffer.Width){
+		int32 MinY = MaxInt32(Rect.MinY, 0);
+		int32 MaxY = MinInt32(Rect.MaxY, Buffer.Height);
 
-		color *Color = (color*)Buffer.Memory + Rect.X;
+		color *Color = (color*)Buffer.Memory + Rect.MinX;
 		for(int32 Y = MinY; Y < MaxY; Y++){
 			*(Color + Y*Buffer.Width) = FillColor;
 		}
 	}
 	//right line
-	if(Rect.X+Rect.W-1 >= 0 && Rect.X+Rect.W-1 < Buffer.Width){
-		int32 MinY = MaxInt32(Rect.Y, 0);
-		int32 MaxY = MinInt32(Rect.Y+Rect.H, Buffer.Height);
+	if(Rect.MaxX-1 >= 0 && Rect.MaxX-1 < Buffer.Width){
+		int32 MinY = MaxInt32(Rect.MinY, 0);
+		int32 MaxY = MinInt32(Rect.MaxY, Buffer.Height);
 
-		color *Color = (color*)Buffer.Memory + (Rect.X+Rect.W-1);
+		color *Color = (color*)Buffer.Memory + (Rect.MaxX-1);
 		for(int32 Y = MinY; Y < MaxY; Y++){
 			*(Color + Y*Buffer.Width) = FillColor;
 		}
 	}
 }
+
 #if 0
 internal void
-BlitBitmap(offscreen_buffer Buffer, vec2i Dest, loaded_bitmap Bitmap, rectangle Src){
+DirectBitmapBliet(offscreen_buffer Buffer, vec2i Dest, loaded_bitmap Bitmap, rectangle Src){
 	assert(Src.W >= 0 || Src.H >= 0);
 
 	int32 SrcMinX = (Src.X >= 0) ? Src.X : 0;
@@ -129,36 +140,58 @@ BlitBitmap(offscreen_buffer Buffer, vec2i Dest, loaded_bitmap Bitmap, rectangle 
 }
 #endif
 
-internal void
-StretchBitmapOrthogonaly(offscreen_buffer Buffer, rectangle Dest, loaded_bitmap Bitmap, rectangle Source){
-	assert(Source.W >= 0);
-	assert(Source.H >= 0);
-	assert(Dest.W >= 0);
-	assert(Dest.H >= 0);
-	if(Source.W <= 0 || Source.H <= 0){
-		return;
+internal inline bool
+DoRectsIntersect(rectangle A, rectangle B){
+	if(A.MaxX < B.MinX || B.MaxX < A.MinX ||
+	   A.MaxY < B.MinY || B.MaxY < A.MinY){
+		return false;
 	}
+	return true;
+}
 
-	real32 	ScaleX = ((real32)Source.W)/((real32)Dest.W);
-	real32 	ScaleY = ((real32)Source.H)/((real32)Dest.H);
-	vec2i  	DestMinCorner 	= {MaxInt32(Dest.X, 0), MaxInt32(Dest.Y, 0)};
-	vec2i	DestMaxCorner 		= {MinInt32(Dest.X+Dest.W, Buffer.Width), MinInt32(Dest.Y+Dest.H, Buffer.Height)};
+internal inline rectangle
+GetRectIntersection(rectangle A, rectangle B){
+	if(DoRectsIntersect(A, B)){
+		int32 MinX = MaxInt32(A.MinX, B.MinX);
+		int32 MinY = MaxInt32(A.MinY, B.MinY);
+		int32 MaxX = MinInt32(A.MaxX, B.MaxX);
+		int32 MaxY = MinInt32(A.MaxY, B.MaxY);
+		return {MinX, MinY, MaxX, MaxY};
+	}
+	return {};
+}
 
-	vec2i	DestRelativeMinCorner = DestMinCorner - vec2i{Dest.X, Dest.Y};
-	vec2i	DestRelativeMaxCorner  = DestMaxCorner - vec2i{Dest.X, Dest.Y};
+internal void
+StretchBitmapOrthogonaly(offscreen_buffer Buffer, loaded_bitmap Bitmap, rectangle Dest, rectangle Source){
+	BEGIN_TIMED_BLOCK(StretchBitmapOrthogonaly);
+	int32 SourceWidth = Source.MaxX - Source.MinX;
+	int32 SourceHeight = Source.MaxY - Source.MinY;
+	int32 DestWidth = Dest.MaxX - Dest.MinX;
+	int32 DestHeight = Dest.MaxY - Dest.MinY;
 
-	rectangle ClippedSourceRect = {MaxInt32(Source.X, 0), MaxInt32(Source.Y, 0)};
-	ClippedSourceRect.W = MinInt32(Source.X+Source.W, Bitmap.Width) - ClippedSourceRect.X;
-	ClippedSourceRect.H = MinInt32(Source.Y+Source.H, Bitmap.Height) - ClippedSourceRect.Y;
-	assert(ClippedSourceRect.W > 0 && ClippedSourceRect.H > 0);
+	assert(SourceWidth >= 0 && SourceHeight >= 0);
+	assert(DestWidth >= 0 && DestHeight >= 0);
 
-	color *DestStart   = ((color*)Buffer.Memory) + Dest.Y*Buffer.Width + Dest.X;
-	color *SourceStart   = ((color*)Bitmap.Texels) + Source.Y*Bitmap.Width + Source.X;
-	for(int32 Y = DestRelativeMinCorner.Y; Y < DestRelativeMaxCorner.Y; Y++){
-		for(int32 X = DestRelativeMinCorner.X; X < DestRelativeMaxCorner.X; X++){
-			color *DestPixel = DestStart + Y*Buffer.Width + X;
+	real32 	ScaleX = ((real32)SourceWidth)/((real32)DestWidth);
+	real32 	ScaleY = ((real32)SourceHeight)/((real32)DestHeight);
+	
+	rectangle DestRelativeClippedRect = GetRectIntersection(rectangle{0, 0, Buffer.Width, Buffer.Height}, Dest);
+	DestRelativeClippedRect.MinP -= Dest.MinP;
+	DestRelativeClippedRect.MaxP -= Dest.MinP;
+
+	rectangle SourceRelativeClippedRect = GetRectIntersection(rectangle{0, 0, Bitmap.Width, Bitmap.Height}, Source);
+	SourceRelativeClippedRect.MinP -= Source.MinP;
+	SourceRelativeClippedRect.MaxP -= Source.MinP;
+
+	color *DestStart = (color*)Buffer.Memory + Dest.MinY*Buffer.Width + Dest.MinX;
+	color *SourceStart = (color*)Bitmap.Texels + Source.MinY*Bitmap.Width + Source.MinX;
+
+	for(int32 Y = DestRelativeClippedRect.MinY; Y < DestRelativeClippedRect.MaxY; Y++){
+		for(int32 X = DestRelativeClippedRect.MinX; X < DestRelativeClippedRect.MaxX; X++){
 			vec2i SourceP = {(int32)(ScaleX*(real32)X), (int32)(ScaleY*(real32)Y)};
-			if(IsPointInsideRect(SourceP+vec2i{Source.X, Source.Y}, ClippedSourceRect)){
+
+			if(IsPointInsideRect(SourceP, SourceRelativeClippedRect)){
+				color *DestPixel = DestStart + Y*Buffer.Width + X;
 				color *SourcePixel = SourceStart + SourceP.Y*Bitmap.Width + SourceP.X;
 
 				real32 t = ((real32)SourcePixel->A)/255.0f;
@@ -168,6 +201,90 @@ StretchBitmapOrthogonaly(offscreen_buffer Buffer, rectangle Dest, loaded_bitmap 
 			}
 		}
 	}
+	END_TIMED_BLOCK(StretchBitmapOrthogonaly);
 }
+
+#if 0
+internal rectangle
+GetParallelogramBoundingRect(parallelogram Para){
+	vec2f MinP = Para.P;
+	vec2f MaxP = Para.P;
+	vec2f Points[3] = {	Para.P + Para.X,
+	   					Para.P + Para.Y,
+					   	Para.P + Para.X + Para.Y};
+	for(int32 i = 0; i < 3; i++){
+		if(Points[i].X < MinP.X){
+			MinP.X = Points[i].X;
+		}
+		if(Points[i].Y < MinP.Y){
+			MinP.Y = Points[i].Y;
+		}
+		if(Points[i].X > MaxP.X){
+			MaxP.X = Points[i].X;
+		}
+		if(Points[i].Y > MaxP.Y){
+			MaxP.Y = Points[i].Y;
+		}
+	}
+
+	rectangle Result = {(int32)MinP.X, (int32)MinP.Y, (int32)MaxP.X, (int32)MaxP.Y};
+	return Result;
+}
+
+
+internal inline vec2f
+Mul(mat2 Mat, vec2f V){
+	vec2f Result = {Mat.Xx*V.X + Mat.Yx*V.Y,
+					Mat.Xy*V.X + Mat.Yy*V.Y};
+	return Result;
+}
+
+internal inline mat2 
+Inv(mat2 Mat){
+	real32 Det = 1.f/(Mat.A*Mat.D-Mat.B*Mat.C);
+	mat2 Result;
+	Result.A = Det*Mat.D;
+	Result.B = Det*(-Mat.B);
+	Result.C = Det*(-Mat.C);
+	Result.D = Det*Mat.A;
+	return Result;
+}
+
+internal inline vec2f
+GetNormalisedUVCoordinates(int32 X, int32 Y, parallelogram Para){
+	mat2 InvBasis = Inv(Para.Basis);
+	vec2f RelP = vec2f{(real32)X, (real32)Y} - Para.P;
+	vec2f NormP = Mul(InvBasis, RelP);
+	return NormP;
+}
+
+internal void
+BlitBitmap(offscreen_buffer Buffer, loaded_bitmap Bitmap, parallelogram Dest, parallelogram Source){
+	rectangle DestBoundingRect = GetParallelogramBoundingRect(Dest);
+	rectangle ClippedDestBoundingRect = GetRectIntersection(rectangle{0, 0, Buffer.Width, Buffer.Height}, DestBoundingRect);
+
+	rectangle BitmapRect = {0, 0, Bitmap.Width, Bitmap.Height};
+	color *DestStart = (color*)Buffer.Memory;
+	color *SourceStart = (color*)Bitmap.Texels;
+	for(int32 Y = ClippedDestBoundingRect.MinY; Y < ClippedDestBoundingRect.MaxY; Y++){
+		for(int32 X = ClippedDestBoundingRect.MinX; X < ClippedDestBoundingRect.MaxX; X++){
+			vec2f NormUV = GetNormalisedUVCoordinates(X, Y, Dest);
+			if(NormUV.X > 0.0f && NormUV.X < 1.0f && NormUV.Y > 0.0f && NormUV.Y < 1.0f){
+				vec2f UVf = Mul(Source.Basis, NormUV);
+				vec2i UV = {(int32)UVf.X, (int32)UVf.Y};
+				if(IsPointInsideRect(UV, BitmapRect)){
+					color *SourceTexel = SourceStart + UV.Y*Bitmap.Width + UV.X;
+					color *DestPixel = DestStart + Y*Buffer.Width + X;
+
+					real32 t = ((real32)SourceTexel->A)/255.0f;
+					DestPixel->R = (uint8)(DestPixel->R*(1.0f-t) + SourceTexel->R*t);
+					DestPixel->G = (uint8)(DestPixel->G*(1.0f-t) + SourceTexel->G*t);
+					DestPixel->B = (uint8)(DestPixel->B*(1.0f-t) + SourceTexel->B*t);
+				}
+			}
+		}
+	}
+}
+#endif
 
 #endif //RENDERER_CPP

@@ -3,11 +3,45 @@
 #include "vec2.h"
 #include "assert.h"
 
-#include <stdint.h>
-#include "globals.h"
 #include "timer.h"
 #include "timer.cpp"
 #include "platform.h"
+
+#define DEBUG_PROFILING 0
+#if DEBUG_PROFILING 
+enum{
+	DEBUG_UpdateAndRender,
+	DEBUG_Simulation,
+	DEBUG_Rendering,
+	DEBUG_ClearOffscreenBuffer,
+	DEBUG_StretchBitmapOrthogonaly,
+	DEBUG_BlitOneBitmap,
+};
+struct debug_cycle_counter {
+	uint64 CycleCount;
+	uint64 Calls;
+};
+char DEBUG_TABLE_NAMES[][40] = {
+	"UpdateAndRender",
+	"Simulation",
+	"Rendering",
+	"ClearOffscreenBuffer",
+	"StretchBitmapOrthogonaly",
+	"BlitOneBitmap",
+};
+
+debug_cycle_counter DEBUG_CYCLE_TABLE[ArrayCount(DEBUG_TABLE_NAMES)];
+#define BEGIN_TIMED_BLOCK(ID) uint64 StartCycleCount##ID = _rdtsc();
+#define END_TIMED_BLOCK(ID) DEBUG_CYCLE_TABLE[DEBUG_##ID].CycleCount += _rdtsc() - StartCycleCount##ID; \
+							DEBUG_CYCLE_TABLE[DEBUG_##ID].Calls++;
+#else
+#define BEGIN_TIMED_BLOCK(ID)
+#define END_TIMED_BLOCK(ID)
+
+#endif //DEGUB_PROFILING
+
+#include <stdint.h>
+#include "globals.h"
 #include "rendering.h"
 #include "rendering.cpp"
 #include "game.h"
@@ -22,6 +56,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+
+
 
 internal bool32
 InitPlatform(platform_state *Platform)
@@ -339,13 +375,14 @@ int main(int Count, char *Arguments[])
 		SDL_RenderCopy(Platform.Renderer, Platform.OffscreenBuffer.Texture, 0, 0);
 		SDL_RenderPresent(Platform.Renderer);
 		
-		SDL_Delay(FRAME_DURATION - ((Platform.FPS.get_time() <= FRAME_DURATION) ? Platform.FPS.get_time() : FRAME_DURATION));
+		//SDL_Delay(FRAME_DURATION - ((Platform.FPS.get_time() <= FRAME_DURATION) ? Platform.FPS.get_time() : FRAME_DURATION));
 		Platform.FPS.update_avg_fps();
 
-#if DEBUG_PROFILING
 		printf("fps: %f,\n", Platform.FPS.get_average_fps());
+#if DEBUG_PROFILING
 		for(uint32 i = 0; i < ArrayCount(DEBUG_TABLE_NAMES); i++){
-			printf("%35s:%15lucy,%10lucy/op,%10.2f\n", DEBUG_TABLE_NAMES[i], DEBUG_CYCLE_TABLE[i].CycleCount, DEBUG_CYCLE_TABLE[i].CycleCount/DEBUG_CYCLE_TABLE[i].Calls, 100.0 * (real64)DEBUG_CYCLE_TABLE[i].CycleCount /(real64)DEBUG_CYCLE_TABLE[DEBUG_UpdateAndRender].CycleCount);
+			uint64 AverageOpDurationInCyles = (DEBUG_CYCLE_TABLE[i].Calls) ? DEBUG_CYCLE_TABLE[i].CycleCount/DEBUG_CYCLE_TABLE[i].Calls : 0;
+			printf("%35s:%15lucy,%10lucy/op,%10.2f,%10lu calls\n", DEBUG_TABLE_NAMES[i], DEBUG_CYCLE_TABLE[i].CycleCount, AverageOpDurationInCyles , 100.0 * (real64)DEBUG_CYCLE_TABLE[i].CycleCount/(real64)DEBUG_CYCLE_TABLE[DEBUG_UpdateAndRender].CycleCount, DEBUG_CYCLE_TABLE[i].Calls);
 		}
 		printf("\n");
 #endif
