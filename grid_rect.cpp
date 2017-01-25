@@ -34,4 +34,13 @@ GetTileGridRect(int32 X, int32 Y, rectangle SpriteAtlasRect){
 					(GridP.Y+1)*SOURCE_BLOCK_HEIGHT_IN_PIXELS};
 }
 
+internal rectangle
+LerpGridRects(vec2i PosA, vec2i PosB, real32 t, rectangle ScreenRect){
+	rectangle Result = GetGridRect(PosA.X, PosA.Y, ScreenRect);
+	vec2i Delta = {(int32)(t*(real32)BLOCK_WIDTH_IN_PIXELS*((real32)PosB.X - (real32)PosA.X)),
+				   -(int32)(t*(real32)BLOCK_HEIGHT_IN_PIXELS*((real32)PosB.Y - (real32)PosA.Y))};
+	Result.MinP += Delta;
+	Result.MaxP += Delta;
+	return Result;
+}
 #endif //GRID_RECT_CPP

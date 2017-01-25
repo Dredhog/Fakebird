@@ -36,7 +36,7 @@ DeleteSnakeReorderIDs(level *Level, uint32 SnakeID){
 	uint32 RemoveIndex = SnakeID - SNAKE_ID_OFFSET;
 	assert(RemoveIndex >= 0 && RemoveIndex < Level->SnakeCount);
 
-	for(uint32 p = 0; p < Level->Snakes[RemoveIndex].Length; p++){
+	for(int32 p = 0; p < Level->Snakes[RemoveIndex].Length; p++){
 		vec2i PartP = Level->Snakes[RemoveIndex].Parts[p].GridP;
 		Level->Occupancy[PartP.X][PartP.Y] = Tile_Type_Empty;
 	}
@@ -47,7 +47,7 @@ DeleteSnakeReorderIDs(level *Level, uint32 SnakeID){
 
 	for(uint32 i = RemoveIndex; i < Level->SnakeCount; i++){
 		Level->Snakes[i].SnakeID = i + SNAKE_ID_OFFSET;
-		for(uint32 p = 0; p < Level->Snakes[i].Length; p++){
+		for(int32 p = 0; p < Level->Snakes[i].Length; p++){
 			vec2i PartP = Level->Snakes[i].Parts[p].GridP;
 			Level->Occupancy[PartP.X][PartP.Y] = Level->Snakes[i].SnakeID;
 		}

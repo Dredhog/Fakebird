@@ -1,9 +1,9 @@
 #if !defined(DRAW_GAME_CPP)
 #define DRAW_GAME_CPP
 
-static color SNAKE_COLORS[3][2] =      {{color{255, 10, 10, 255}, color{255, 76, 48, 255}},
-									   {color{0, 76, 255, 255}, color{0, 136, 255, 255}},
-									   {color{24, 209, 31, 255}, color{71, 219, 72, 255}}};
+static color SNAKE_COLORS[3][2] =	{{color{255, 10, 10, 255}, color{255, 76, 48, 255}},
+									{color{0, 76, 255, 255}, color{0, 136, 255, 255}},
+									{color{24, 209, 31, 255}, color{71, 219, 72, 255}}};
  
 static color TILE_OUTLINE_COLOR = {200, 150, 55, 100};
 
@@ -121,15 +121,58 @@ DrawTileBrush(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle
 
 internal void
 DrawSnakes(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline){
-	for(uint32 SnakeIndex = 0; SnakeIndex  < GameState->Level.SnakeCount; SnakeIndex++){
+	for(uint32 SnakeIndex = 0; SnakeIndex < GameState->Level.SnakeCount; SnakeIndex++){
 		snake *Snake = &GameState->Level.Snakes[SnakeIndex];
-		for(uint32 p = 0; p < Snake->Length; p++){
-			vec2i PartPos =  Snake->Parts[p].GridP;
-
-			rectangle DestRect = GetGridRect(PartPos.X, PartPos.Y, ScreenOutline);
-			color Color = SNAKE_COLORS[Snake->PaletteIndex][p % 2];
-			FillRect(OffscreenBuffer, DestRect, Color);
+		
+		switch(Snake->Transition.Type){
+			case  Transition_Type_Slide:
+			{
+				for(int32 p = Snake->Length-1; p > 0; p--){
+					vec2i OldP =  Snake->Parts[p].GridP;
+					vec2i NewP = Snake->Parts[p-1].GridP;
+					rectangle DestRect = LerpGridRects(OldP, NewP, GameState->t, ScreenOutline);
+					color Color = SNAKE_COLORS[Snake->PaletteIndex][p % 2];
+					FillRect(OffscreenBuffer, DestRect, Color);
+				}
+				vec2i OldPos =  Snake->Parts[0].GridP;
+				vec2i NewPos  = Snake->Transition.Slide.NewHeadP;
+				rectangle DestRect = LerpGridRects(OldPos, NewPos, GameState->t, ScreenOutline);
+				color Color = SNAKE_COLORS[Snake->PaletteIndex][0];
+				FillRect(OffscreenBuffer, DestRect, Color);
+				if(Snake == GameState->Player){
+					DrawRectOutline(OffscreenBuffer, DestRect, {200, 0, 255, 255});
+				}
+			}
+			break;
+			case  Transition_Type_GotPushed:
+			{
+				for(int32 p = Snake->Length-1; p >= 0; p--){
+					vec2i OldP = Snake->Parts[p].GridP;
+					vec2i NewP = OldP + Snake->Transition.GotPushed.Direction;	
+					rectangle DestRect = LerpGridRects(OldP, NewP, GameState->t, ScreenOutline);
+					color Color = SNAKE_COLORS[Snake->PaletteIndex][p % 2];
+					FillRect(OffscreenBuffer, DestRect, Color);
+				}
+			}
+			break;
+			case Transition_Type_Fall:
+			{
+			}
+			break;
+			case Transition_Type_None:
+			{
+				for(int32 p = 0; p < Snake->Length; p++){
+					vec2i PartPos =  Snake->Parts[p].GridP;
+					rectangle DestRect = GetGridRect(PartPos.X, PartPos.Y, ScreenOutline);
+					color Color = SNAKE_COLORS[Snake->PaletteIndex][p % 2];
+					FillRect(OffscreenBuffer, DestRect, Color);
+					if(p == 0 && Snake == GameState->Player){
+						DrawRectOutline(OffscreenBuffer, DestRect, {200, 0, 255, 255});
+					}
+				}
+			}
 		}
 	}
 }
+
 #endif //DRAW_GAME_CPP

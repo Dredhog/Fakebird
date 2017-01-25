@@ -378,8 +378,8 @@ int main(int Count, char *Arguments[])
 		//SDL_Delay(FRAME_DURATION - ((Platform.FPS.get_time() <= FRAME_DURATION) ? Platform.FPS.get_time() : FRAME_DURATION));
 		Platform.FPS.update_avg_fps();
 
-		printf("fps: %f,\n", Platform.FPS.get_average_fps());
 #if DEBUG_PROFILING
+		printf("fps: %f,\n", Platform.FPS.get_average_fps());
 		for(uint32 i = 0; i < ArrayCount(DEBUG_TABLE_NAMES); i++){
 			uint64 AverageOpDurationInCyles = (DEBUG_CYCLE_TABLE[i].Calls) ? DEBUG_CYCLE_TABLE[i].CycleCount/DEBUG_CYCLE_TABLE[i].Calls : 0;
 			printf("%35s:%15lucy,%10lucy/op,%10.2f,%10lu calls\n", DEBUG_TABLE_NAMES[i], DEBUG_CYCLE_TABLE[i].CycleCount, AverageOpDurationInCyles , 100.0 * (real64)DEBUG_CYCLE_TABLE[i].CycleCount/(real64)DEBUG_CYCLE_TABLE[DEBUG_UpdateAndRender].CycleCount, DEBUG_CYCLE_TABLE[i].Calls);

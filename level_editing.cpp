@@ -18,7 +18,7 @@ EditLevel(level *Level, rectangle ScreenOutline, uint32 *ActiveBrush, game_input
 				}else{
 					snake *LastAddedSnake = &Level->Snakes[Level->SnakeCount - 1];
 					bool32 SelfIntersecting  = false;
-					for(uint32 p = 0; p < LastAddedSnake->Length; p++){
+					for(int32 p = 0; p < LastAddedSnake->Length; p++){
 						vec2i GridP = LastAddedSnake->Parts[p].GridP;
 						if(GridP.X == MouseGridP.X && GridP.Y == MouseGridP.Y){
 							SelfIntersecting = true;
