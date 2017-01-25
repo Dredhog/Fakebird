@@ -1,40 +1,6 @@
 #if !defined(TYPES_H)
 #define TYPES_H
 
-/*
-#include "vec2.h"
-#include "platform.h"
-#include "globals.h"
-*/
-static color SNAKE_COLORS[3][2] =      {{color{255, 10, 10, 255}, color{255, 76, 48, 255}},
-									   {color{0, 76, 255, 255}, color{0, 136, 255, 255}},
-									   {color{24, 209, 31, 255}, color{71, 219, 72, 255}}};
- 
-static color TILE_OUTLINE_COLOR = {200, 150, 55, 100};
-
-static color TILE_COLORS[5] = {{154, 120, 55, 255},
-							   {200, 200, 55, 255},
-							   {154, 155, 155, 255},
-							   {120, 50, 100, 255},
-							   {255, 50, 200, 255}};
-
-static color TILEMAP_BACKGROUND_COLORS[LEVEL_MAX_LAYER_COUNT] = {	{24, 255, 31, 255}, 
-																   	{200, 60, 255, 255},
-																   	{200, 100, 40, 255}};
-
-
-struct snake_part{
-	vec2i 		GridP;	//Cartesian coord (first quadrant)
-};
-
-struct snake{
-	uint32 		Length;
-	color		Color0;
-	color		Color1;
-	snake_part 	Parts[SNAKE_MAX_LENGTH];
-	uint32		SnakeID;
-};
-
 enum basic_tyle_type{
 	Tile_Type_Empty,
 	Tile_Type_Solid,
@@ -45,6 +11,17 @@ enum basic_tyle_type{
 
 struct tile{
 	rectangle Source;
+};
+
+struct snake_part{
+	vec2i 	GridP;	//Cartesian coord (first quadrant)
+};
+
+struct snake{
+	uint32 		Length;
+	uint32		PaletteIndex;
+	snake_part 	Parts[SNAKE_MAX_LENGTH];
+	uint32		SnakeID;
 };
 
 struct level{
@@ -81,7 +58,6 @@ struct game_state{
 
 	uint32 	ActiveBrush;
 	vec2i 	MouseGridP;
-	vec2i	MouseSpriteSheetP;
 
 	tile	ActiveTileBrush;
 	rectangle SpriteAtlasRect;
@@ -93,8 +69,5 @@ struct game_state{
 	game_mode Mode;
 	uint32	MagicChecksum;
 };
-
-static void
-UpdateAndRender(game_memory *Memory, offscreen_buffer OffscreenBuffer, game_input *Input);
 
 #endif //TYPES_H

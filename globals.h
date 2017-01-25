@@ -14,7 +14,7 @@ static const int SCREEN_DELAY 	= 1;
 static const int FRAME_DURATION = 16;
 
 //level
-static const unsigned int LEVEL_COUNT = 5;
+static const unsigned int LEVEL_COUNT = 1;
 static const int LEVEL_MAX_WIDTH 	= 25;
 static const int LEVEL_MAX_HEIGHT 	= 20;
 static const unsigned int EDIT_BRUSH_COUNT = 8;
