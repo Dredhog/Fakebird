@@ -1,14 +1,10 @@
 #ifndef ATTRIBUTES_INCLUDES_H_INCLUDED
 #define ATTRIBUTES_INCLUDES_H_INCLUDED
 
-//Math
-static const float PI = 3.14159258979f;
-
 //display
-static const int SCREEN_WIDTH 	= 1111;
-static const int SCREEN_HEIGHT 	= 900;
+static const int SCREEN_WIDTH 	= 1024;
+static const int SCREEN_HEIGHT 	= 800;
 static const int SCREEN_DELAY 	= 1;
-
 
 //update
 static const int FRAME_DURATION = 16;

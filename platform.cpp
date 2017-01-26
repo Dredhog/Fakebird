@@ -1,52 +1,16 @@
 #include <SDL.h>
-#include <random>
-#include "vec2.h"
 #include "assert.h"
 
 #include "timer.h"
 #include "timer.cpp"
+
+#include "globals.h"
+
+#include "vec2.h"
+#include "game.h"
 #include "platform.h"
 
-#define DEBUG_PROFILING 0
-#if DEBUG_PROFILING 
-enum{
-	DEBUG_UpdateAndRender,
-	DEBUG_Simulation,
-	DEBUG_Rendering,
-	DEBUG_ClearOffscreenBuffer,
-	DEBUG_StretchBitmapOrthogonaly,
-	DEBUG_BlitOneBitmap,
-};
-struct debug_cycle_counter {
-	uint64 CycleCount;
-	uint64 Calls;
-};
-char DEBUG_TABLE_NAMES[][40] = {
-	"UpdateAndRender",
-	"Simulation",
-	"Rendering",
-	"ClearOffscreenBuffer",
-	"StretchBitmapOrthogonaly",
-	"BlitOneBitmap",
-};
-
-debug_cycle_counter DEBUG_CYCLE_TABLE[ArrayCount(DEBUG_TABLE_NAMES)];
-#define BEGIN_TIMED_BLOCK(ID) uint64 StartCycleCount##ID = _rdtsc();
-#define END_TIMED_BLOCK(ID) DEBUG_CYCLE_TABLE[DEBUG_##ID].CycleCount += _rdtsc() - StartCycleCount##ID; \
-							DEBUG_CYCLE_TABLE[DEBUG_##ID].Calls++;
-#else
-#define BEGIN_TIMED_BLOCK(ID)
-#define END_TIMED_BLOCK(ID)
-
-#endif //DEGUB_PROFILING
-
-//#include <stdint.h>
-#include "globals.h"
-#include "game.cpp"
-#include "immintrin.h"
-#include "circular_buffer.h"
-#include <sys/mman.h>
-//#include <Windows.h>
+#include "circular_buffer.h" 
 
 //Files
 #include <sys/types.h>
@@ -54,6 +18,8 @@ debug_cycle_counter DEBUG_CYCLE_TABLE[ArrayCount(DEBUG_TABLE_NAMES)];
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <sys/mman.h>
+//#include <Windows.h>
 
 
 internal bool32
@@ -118,7 +84,7 @@ ResizeOffscreenBuffer(SDL_Renderer *Renderer, offscreen_buffer *Buffer, int32 Wi
 }
 
 
-internal debug_read_file_result
+debug_read_file_result
 DEBUGPlatformReadEntireFile(char *FileName){
 	debug_read_file_result Result = {};
 	int FileHandle = open(FileName, O_RDONLY);
@@ -158,7 +124,7 @@ DEBUGPlatformReadEntireFile(char *FileName){
 	return Result;
 }
 
-internal loaded_bitmap
+loaded_bitmap
 DEBUGPlatformLoadBitmapFromFile(char *FileName){
 	loaded_bitmap Result = {};
 	SDL_Surface *ImageSurface = SDL_LoadBMP(FileName);
@@ -175,12 +141,13 @@ DEBUGPlatformLoadBitmapFromFile(char *FileName){
 	return Result;
 }
 
-internal void
+void
 DEBUGPlatformFreeFileMemory(void *Memory){
 	free(Memory);
 }
 
-internal bool32 DEBUGPLatformWriteEntireFile(char *Filename, uint64 MemorySize, void *Memory){
+bool32
+DEBUGPLatformWriteEntireFile(char *Filename, uint64 MemorySize, void *Memory){
 	int FileHandle = open(Filename, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
 	if(FileHandle == -1){
@@ -210,6 +177,10 @@ AllocateGameMemory(game_memory *GameMemory) {
 	//LPVOID BaseAddress = (LPVOID*)Gigabytes(10);
 	GameMemory->BaseAddress = mmap(GameMemory->BaseAddress, GameMemory->Size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	//GameMemory->BaseAddress = VirtualAlloc(BaseAddress, GameMemory->Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	GameMemory->PlatformServices.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
+	GameMemory->PlatformServices.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
+	GameMemory->PlatformServices.DEBUGPLatformWriteEntireFile = DEBUGPLatformWriteEntireFile;
+	GameMemory->PlatformServices.DEBUGPlatformLoadBitmapFromFile = DEBUGPlatformLoadBitmapFromFile;
 }
 
 internal bool32
@@ -328,6 +299,39 @@ CleanUp(platform_state *Platform)
 	SDL_Quit();
 }
 
+struct loaded_game_code{
+	void *LibraryHandle;
+	game_update_and_render *UpdateAndRender;
+	bool IsValid;
+};
+
+internal loaded_game_code
+LoadGameCode(){
+	loaded_game_code Result = {};
+	Result.LibraryHandle = SDL_LoadObject("./game.so");
+	if(Result.LibraryHandle){
+		Result.UpdateAndRender = (game_update_and_render*)SDL_LoadFunction(Result.LibraryHandle , "GameUpdateAndRender");
+	}else{
+		printf("shared library load fail: %s\n", SDL_GetError());
+	}
+
+	Result.IsValid = (Result.UpdateAndRender);
+	if(!Result.IsValid){
+		printf("function name load fail: %s\n", SDL_GetError());
+		Result.UpdateAndRender = GameUpdateAndRenderStub;
+	}
+
+	return Result;
+}
+
+internal void
+UnloadGameCode(loaded_game_code GameCode){
+	if(GameCode.LibraryHandle){
+		SDL_UnloadObject(GameCode.LibraryHandle);
+		GameCode.UpdateAndRender = GameUpdateAndRenderStub;
+	}
+}
+
 int main(int Count, char *Arguments[])
 {
 	platform_state Platform = {};
@@ -338,15 +342,15 @@ int main(int Count, char *Arguments[])
 	assert(GameMemory.BaseAddress);
 
 	playback_buffer PlaybackBuffer = NewPlaybackBuffer(32, 16, SafeTruncateUint64(GameMemory.Size));
-	printf("Memory BaseAddress: %lu; GameMemory.Size: %lu MB", (uint64)GameMemory.BaseAddress, GameMemory.Size / (uint64)1e6);
+	printf("Memory BaseAddress: %lu, GameMemory.Size: %lu MB\n", (uint64)GameMemory.BaseAddress, GameMemory.Size / (uint64)1e6);
 
 	game_input OldInput = {};
 	game_input NewInput = {};
+	loaded_game_code GameCode = LoadGameCode();
 
 	while (Platform.Running)
 	{
 		Platform.FPS.start();
-
 		Platform.Running = ProcessInput(&OldInput, &NewInput, &Platform.Event, &Platform);
 
 		if (NewInput.p.EndedDown && NewInput.p.Changed) {
@@ -367,7 +371,7 @@ int main(int Count, char *Arguments[])
 			PushPlaybackBuffer(&PlaybackBuffer, &NewInput, GameMemory.BaseAddress, Platform.FrameCount);
 		}
 
-		UpdateAndRender(&GameMemory, Platform.OffscreenBuffer, &NewInput);
+		GameCode.UpdateAndRender(&GameMemory, Platform.OffscreenBuffer, &NewInput);
 		SDL_UpdateTexture(Platform.OffscreenBuffer.Texture, 0, Platform.OffscreenBuffer.Memory, Platform.OffscreenBuffer.Pitch);
 		SDL_RenderCopy(Platform.Renderer, Platform.OffscreenBuffer.Texture, 0, 0);
 		SDL_RenderPresent(Platform.Renderer);
@@ -379,14 +383,23 @@ int main(int Count, char *Arguments[])
 		printf("fps: %f,\n", Platform.FPS.get_average_fps());
 		for(uint32 i = 0; i < ArrayCount(DEBUG_TABLE_NAMES); i++){
 			uint64 AverageOpDurationInCyles = (DEBUG_CYCLE_TABLE[i].Calls) ? DEBUG_CYCLE_TABLE[i].CycleCount/DEBUG_CYCLE_TABLE[i].Calls : 0;
-			printf("%35s:%15lucy,%10lucy/op,%10.2f,%10lu calls\n", DEBUG_TABLE_NAMES[i], DEBUG_CYCLE_TABLE[i].CycleCount, AverageOpDurationInCyles , 100.0 * (real64)DEBUG_CYCLE_TABLE[i].CycleCount/(real64)DEBUG_CYCLE_TABLE[DEBUG_UpdateAndRender].CycleCount, DEBUG_CYCLE_TABLE[i].Calls);
+			printf("%35s:%15lucy,%10lucy/op,%10.2f,%10lu calls\n",
+					DEBUG_TABLE_NAMES[i], DEBUG_CYCLE_TABLE[i].CycleCount, AverageOpDurationInCyles,
+					100.0 * (real64)DEBUG_CYCLE_TABLE[i].CycleCount/(real64)DEBUG_CYCLE_TABLE[DEBUG_UpdateAndRender].CycleCount,
+					DEBUG_CYCLE_TABLE[i].Calls);
 		}
 		printf("\n");
 #endif
 
 		OldInput = NewInput;
 		Platform.FrameCount++;
+
+		if(Platform.FrameCount %200 == 0){
+			UnloadGameCode(GameCode);
+			GameCode = LoadGameCode();
+		}
 	}
+	UnloadGameCode(GameCode);
 
 	DestroyPlaybackBuffer(&PlaybackBuffer);
 	CleanUp(&Platform);

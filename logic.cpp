@@ -113,7 +113,7 @@ GenerateNewStateAfterTransition(level *Level, marked_snakes *MarkedSnakes){
 }
 
 internal void
-UpdateLogic(game_state *GameState, game_input *Input){
+UpdateLogic(game_state *GameState, game_input *Input, platform_service_v_table PlatformServices){
 	if(!GameState->Player){
 		return;
 	}
@@ -135,7 +135,7 @@ UpdateLogic(game_state *GameState, game_input *Input){
 		PlayNextSnake(GameState);
 	}
 	if(Input->r.EndedDown && Input->r.Changed){
-		ReloadLevel(GameState);
+		ReloadLevel(GameState, PlatformServices);
 	}
 
 	snake *Player = GameState->Player;
@@ -186,7 +186,7 @@ UpdateLogic(game_state *GameState, game_input *Input){
 
 			while(MarkIfSnakesCanMoove(Level, &GameState->MarkedSnakes, SnakeID, SNAKE_MAX_COUNT+SNAKE_ID_OFFSET, vec2i{0, -1})){
 				if(WillAMarkedSnakeBePushedOnSpikes(Level, &GameState->MarkedSnakes, vec2i{0, -1})){
-					ReloadLevel(GameState);
+					ReloadLevel(GameState, PlatformServices);
 					return;
 				}
 				PushMarkedSnakes(Level, &GameState->MarkedSnakes, vec2i{0, -1});

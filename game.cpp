@@ -1,8 +1,15 @@
 #if !defined(GAME_CPP)
 #define GAME_CPP
 
-#include "rendering.h"
+#include "assert.h"
+#include <string.h>
+#include <stdio.h>
+
+#include "globals.h"
+#include "vec2.h"
+#include <stdint.h>
 #include "game.h"
+#include "rendering.h"
 #include "rendering.cpp"
 #include "misc.cpp"
 #include "grid_rect.cpp"
@@ -11,7 +18,7 @@
 #include "logic.cpp"
 
 internal void
-InitGameState(game_state *GameState, void *MemoryEnd)
+InitGameState(game_state *GameState, void *MemoryEnd, platform_service_v_table PlatformServices)
 {
 	assert(GameState);
 	char *BaseAddress = ((char*)GameState); 
@@ -23,17 +30,16 @@ InitGameState(game_state *GameState, void *MemoryEnd)
 	GameState->SpriteAtlasActive = true;
 	GameState->CurrentLevelName[0] = '0';
 	GameState->CurrentLevelName[1] = '0';
-	GameState->SpriteAtlas = DEBUGPlatformLoadBitmapFromFile((char*)"data/tile_sheet.bmp");//(NOTE): Add success check
+	GameState->SpriteAtlas = PlatformServices.DEBUGPlatformLoadBitmapFromFile((char*)"data/tile_sheet.bmp");//(NOTE): Add success check
 }
 
-internal void
-UpdateAndRender(game_memory *Memory, offscreen_buffer OffscreenBuffer, game_input *Input)
+extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
 	game_state *GameState = (game_state*)Memory->BaseAddress;
 	if(GameState->MagicChecksum != 11789){
 		GameState->MagicChecksum = 11789;
-		InitGameState(GameState, (char*)Memory->BaseAddress + Memory->Size);
-		ReloadLevel(GameState);
+		InitGameState(GameState, (char*)Memory->BaseAddress + Memory->Size, Memory->PlatformServices);
+		ReloadLevel(GameState, Memory->PlatformServices);
 	}
 
 	//State Machine
@@ -47,20 +53,20 @@ UpdateAndRender(game_memory *Memory, offscreen_buffer OffscreenBuffer, game_inpu
 	}
 	if(GameStateChanged){
 		if(GameState->Mode != Game_Mode_Play){
-			debug_read_file_result LevelHandle = DEBUGPlatformReadEntireFile(&GameState->CurrentLevelName[0]);
+			debug_read_file_result LevelHandle = Memory->PlatformServices.DEBUGPlatformReadEntireFile(&GameState->CurrentLevelName[0]);
 			if(LevelHandle.ContentsSize){
 				memcpy(&GameState->Level, LevelHandle.Contents, LevelHandle.ContentsSize);
-				DEBUGPlatformFreeFileMemory(LevelHandle.Contents);
+				Memory->PlatformServices.DEBUGPlatformFreeFileMemory(LevelHandle.Contents);
 			}
 		}else{
-			ReloadLevel(GameState);
+			ReloadLevel(GameState, Memory->PlatformServices);
 		}
 	}
 	if(Input->LeftCtrl.EndedDown && Input->s.EndedDown && Input->s.Changed){
 		if(GameState->Mode == Game_Mode_Tile){
 			GameState->Level.ForegroundLayerIndex = GameState->ActiveLayerIndex;
 		}
-		bool32 WriteSuccess = DEBUGPLatformWriteEntireFile(&GameState->CurrentLevelName[0], sizeof(level), &GameState->Level);
+		bool32 WriteSuccess = Memory->PlatformServices.DEBUGPLatformWriteEntireFile(&GameState->CurrentLevelName[0], sizeof(level), &GameState->Level);
 		printf("Save Initiated, (1-success, 0-fail): %d  to %s\n", WriteSuccess, GameState->CurrentLevelName);
 	}
 
@@ -72,7 +78,7 @@ UpdateAndRender(game_memory *Memory, offscreen_buffer OffscreenBuffer, game_inpu
 	ClearOffscreenBuffer(OffscreenBuffer, color{100, 200, 255, 255});
 	switch(GameState->Mode){
 		case Game_Mode_Play:
-			UpdateLogic(GameState, Input);
+			UpdateLogic(GameState, Input, Memory->PlatformServices);
 			DrawPlayModeElements(GameState, OffscreenBuffer, ScreenOutline);
 			DrawPlayModeLevel(GameState, OffscreenBuffer, ScreenOutline, 0, GameState->Level.ForegroundLayerIndex);
 			DrawSnakes(GameState, OffscreenBuffer, ScreenOutline);

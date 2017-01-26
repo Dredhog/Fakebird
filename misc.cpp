@@ -55,14 +55,14 @@ DeleteSnakeReorderIDs(level *Level, uint32 SnakeID){
 }
 
 internal void
-ReloadLevel(game_state *GameState)
+ReloadLevel(game_state *GameState, platform_service_v_table PlatformServices)
 {
 	GameState->CurrentLevelName[0] = (char)((GameState->LevelIndex/10)+48);
 	GameState->CurrentLevelName[1] = (char)((GameState->LevelIndex%10)+48);
-	debug_read_file_result LevelHandle = DEBUGPlatformReadEntireFile(GameState->CurrentLevelName);
+	debug_read_file_result LevelHandle = PlatformServices.DEBUGPlatformReadEntireFile(GameState->CurrentLevelName);
 	if(LevelHandle.ContentsSize){
 		memcpy(&GameState->Level, LevelHandle.Contents, LevelHandle.ContentsSize);
-		DEBUGPlatformFreeFileMemory(LevelHandle.Contents);
+		PlatformServices.DEBUGPlatformFreeFileMemory(LevelHandle.Contents);
 		GameState->FruitRemaining = 0;
 		for(uint32 i = 0; i < GameState->Level.Width; i++){
 			for(uint32 j = 0; j < GameState->Level.Height; j++){

@@ -43,18 +43,4 @@ struct parallelogram{
 	};
 };
 
-union rectangle{
-	struct{
-		vec2i MinP;
-		vec2i MaxP;
-	};
-	struct{
-		int32 MinX;
-		int32 MinY;
-		int32 MaxX;
-		int32 MaxY;
-	};
-	int32 All[4];
-};
-
 #endif //RENDERER_H

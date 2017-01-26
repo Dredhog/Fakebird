@@ -3,7 +3,7 @@
 
 internal void 
 ClearOffscreenBuffer(offscreen_buffer Buffer, color FillColor){
-	BEGIN_TIMED_BLOCK(ClearOffscreenBuffer);
+	//BEGIN_TIMED_BLOCK(ClearOffscreenBuffer);
 #if 1
 	memset(Buffer.Memory, 200, Buffer.Width*Buffer.Height*sizeof(4));
 #else
@@ -16,7 +16,7 @@ ClearOffscreenBuffer(offscreen_buffer Buffer, color FillColor){
 		}
 	}
 #endif
-	END_TIMED_BLOCK(ClearOffscreenBuffer);
+	//END_TIMED_BLOCK(ClearOffscreenBuffer);
 }
 
 internal inline int32
@@ -163,7 +163,7 @@ GetRectIntersection(rectangle A, rectangle B){
 
 internal void
 StretchBitmapOrthogonaly(offscreen_buffer Buffer, loaded_bitmap Bitmap, rectangle Dest, rectangle Source){
-	BEGIN_TIMED_BLOCK(StretchBitmapOrthogonaly);
+	//BEGIN_TIMED_BLOCK(StretchBitmapOrthogonaly);
 	int32 SourceWidth = Source.MaxX - Source.MinX;
 	int32 SourceHeight = Source.MaxY - Source.MinY;
 	int32 DestWidth = Dest.MaxX - Dest.MinX;
@@ -201,7 +201,7 @@ StretchBitmapOrthogonaly(offscreen_buffer Buffer, loaded_bitmap Bitmap, rectangl
 			}
 		}
 	}
-	END_TIMED_BLOCK(StretchBitmapOrthogonaly);
+	//END_TIMED_BLOCK(StretchBitmapOrthogonaly);
 }
 
 #if 0
