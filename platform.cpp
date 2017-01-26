@@ -40,11 +40,8 @@ debug_cycle_counter DEBUG_CYCLE_TABLE[ArrayCount(DEBUG_TABLE_NAMES)];
 
 #endif //DEGUB_PROFILING
 
-#include <stdint.h>
+//#include <stdint.h>
 #include "globals.h"
-#include "rendering.h"
-#include "rendering.cpp"
-#include "game.h"
 #include "game.cpp"
 #include "immintrin.h"
 #include "circular_buffer.h"

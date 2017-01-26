@@ -155,10 +155,6 @@ DrawSnakes(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle Sc
 				}
 			}
 			break;
-			case Transition_Type_Fall:
-			{
-			}
-			break;
 			case Transition_Type_None:
 			{
 				for(int32 p = 0; p < Snake->Length; p++){
@@ -171,6 +167,10 @@ DrawSnakes(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle Sc
 					}
 				}
 			}
+			default:
+			{
+			}
+			break;
 		}
 	}
 }

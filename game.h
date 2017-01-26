@@ -71,8 +71,8 @@ enum game_mode{
 };
 
 struct marked_snakes{
-	snake 	*VisitedSnakes[SNAKE_MAX_COUNT];
-	uint8 	Visited[SNAKE_MAX_COUNT];
+	snake 	*MarkedSnakes[SNAKE_MAX_COUNT];
+	uint8 	IsMarked[SNAKE_MAX_COUNT];
 	int32 	Count;
 };
 

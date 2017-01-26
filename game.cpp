@@ -1,13 +1,14 @@
 #if !defined(GAME_CPP)
 #define GAME_CPP
 
-#include "misc.cpp"
 #include "rendering.h"
+#include "game.h"
 #include "rendering.cpp"
+#include "misc.cpp"
 #include "grid_rect.cpp"
 #include "level_editing.cpp"
 #include "draw_game.cpp"
-#include "game_logic.cpp"
+#include "logic.cpp"
 
 internal void
 InitGameState(game_state *GameState, void *MemoryEnd)
@@ -15,12 +16,6 @@ InitGameState(game_state *GameState, void *MemoryEnd)
 	assert(GameState);
 	char *BaseAddress = ((char*)GameState); 
 	assert((BaseAddress + sizeof(GameState)) <= (char*)MemoryEnd); 
-#if 0
-	debug_read_file_result GameInfoHandle = DEBUGPlatformReadEntireFile((char*)"game_state");
-	if(GameInfoHandle.ContentsSize >= sizeof(game_state)){
-		*GameState = *((game_state*)GameInfoHandle.Contents);
-	}
-#endif
 	GameState->Mode = Game_Mode_Play;
 	GameState->ActiveLayerIndex = 1;
 	GameState->ActiveBrush = 1;

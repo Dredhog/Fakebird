@@ -8,10 +8,10 @@ PlayNextSnake(game_state *GameState){
 }
 
 internal void
-ClearVisitedSnakes(marked_snakes *MarkedSnakes){
+ClearMarkedSnakes(marked_snakes *MarkedSnakes){
 	for(uint32 i = 0; i < SNAKE_MAX_COUNT; i++){
-		MarkedSnakes->Visited[i] = false;
-		MarkedSnakes->VisitedSnakes[i] = 0;
+		MarkedSnakes->IsMarked[i] = false;
+		MarkedSnakes->MarkedSnakes[i] = 0;
 	}
 	MarkedSnakes->Count = 0;
 }
@@ -22,8 +22,8 @@ IsRecursiveVisitPushable(level *Level, marked_snakes *MarkedSnakes, uint32 Snake
 	assert(SnakeIndex >= 0 && SnakeIndex < Level->SnakeCount);
 	snake *Snake = Level->Snakes + SnakeIndex;
 
-	MarkedSnakes->Visited[SnakeIndex] = true;
-	MarkedSnakes->VisitedSnakes[MarkedSnakes->Count++] = Snake;
+	MarkedSnakes->IsMarked[SnakeIndex] = true;
+	MarkedSnakes->MarkedSnakes[MarkedSnakes->Count++] = Snake;
 
 	for(int32 i = 0; i < Snake->Length; i++){
 		vec2i DestP = Snake->Parts[i].GridP + Dir;
@@ -35,7 +35,7 @@ IsRecursiveVisitPushable(level *Level, marked_snakes *MarkedSnakes, uint32 Snake
 		if(	DestValue == FirstSnakeID || DestValue == Tile_Type_Solid ||
 			DestValue == Tile_Type_Fruit || (DestValue == Tile_Type_Spikes && Dir.Y >= 0)){
 			return false;
-		}else if( 	DestValue >= SNAKE_ID_OFFSET && !MarkedSnakes->Visited[DestValue-SNAKE_ID_OFFSET] &&
+		}else if( 	DestValue >= SNAKE_ID_OFFSET && !MarkedSnakes->IsMarked[DestValue-SNAKE_ID_OFFSET] &&
 					!IsRecursiveVisitPushable(Level, MarkedSnakes, DestValue, FirstSnakeID, Dir)){
 			return false;
 		}
@@ -45,22 +45,22 @@ IsRecursiveVisitPushable(level *Level, marked_snakes *MarkedSnakes, uint32 Snake
 
 internal bool
 MarkIfSnakesCanMoove(level *Level, marked_snakes *MarkedSnakes, uint32 SnakeID, uint32 FirstSnakeID, vec2i Dir){
-	ClearVisitedSnakes(MarkedSnakes);
+	ClearMarkedSnakes(MarkedSnakes);
 	bool Result = IsRecursiveVisitPushable(Level, MarkedSnakes, SnakeID, FirstSnakeID, Dir);
 	return Result;
 }
 
 internal void
-PushVisitedSnakes(level *Level, marked_snakes *MarkedSnakes, vec2i Dir){
+PushMarkedSnakes(level *Level, marked_snakes *MarkedSnakes, vec2i Dir){
 	for(int32 s = 0; s < MarkedSnakes->Count; s++){
-		snake *Snake = MarkedSnakes->VisitedSnakes[s];
+		snake *Snake = MarkedSnakes->MarkedSnakes[s];
 		for(int32 p = 0; p < Snake->Length; p++){
 			vec2i PartPos = Snake->Parts[p].GridP;
 			Level->Occupancy[PartPos.X][PartPos.Y] = Tile_Type_Empty;
 		}
 	}
 	for(int32 s = 0; s < MarkedSnakes->Count; s++){
-		snake *Snake = MarkedSnakes->VisitedSnakes[s];
+		snake *Snake = MarkedSnakes->MarkedSnakes[s];
 		for(int32 p = 0; p < Snake->Length; p++){
 			Snake->Parts[p].GridP += Dir;
 			vec2i PartPos = Snake->Parts[p].GridP;
@@ -72,7 +72,7 @@ PushVisitedSnakes(level *Level, marked_snakes *MarkedSnakes, vec2i Dir){
 internal bool
 WillAMarkedSnakeBePushedOnSpikes(level *Level, marked_snakes *MarkedSnakes, vec2i Dir){
 	for(int32 s = 0; s < MarkedSnakes->Count; s++){
-		snake *Snake = MarkedSnakes->VisitedSnakes[s];
+		snake *Snake = MarkedSnakes->MarkedSnakes[s];
 		for(int32 p = 0; p < Snake->Length; p++){
 			vec2i DestDir = Snake->Parts[p].GridP + Dir;
 			if(Level->Occupancy[DestDir.X][DestDir.Y] == Tile_Type_Spikes){
@@ -88,12 +88,10 @@ GenerateNewStateAfterTransition(level *Level, marked_snakes *MarkedSnakes){
 	bool PushOccured = false;
 	for(uint32 SnakeIndex = 0; SnakeIndex < Level->SnakeCount; SnakeIndex++){
 		snake *Snake = Level->Snakes + SnakeIndex;
-		snake_part *Head = Snake->Parts;
-		snake_part *Tail = Snake->Parts + (Snake->Length-1);
 
 		transition *Transition = &Snake->Transition;
 		if(Transition->Type == Transition_Type_GotPushed && !PushOccured){
-			PushVisitedSnakes(Level, MarkedSnakes, Transition->GotPushed.Direction);
+			PushMarkedSnakes(Level, MarkedSnakes, Transition->GotPushed.Direction);
 			PushOccured = true;
 		}
 	}
@@ -165,8 +163,8 @@ UpdateLogic(game_state *GameState, game_input *Input){
 			GameState->Transitioning = true;
 		}else if(Value >= SNAKE_ID_OFFSET && Value != Player->SnakeID && MarkIfSnakesCanMoove(Level, &GameState->MarkedSnakes, Value, Player->SnakeID, Direction)){
 			for(int32 i = 0; i < GameState->MarkedSnakes.Count; i++){
-				GameState->MarkedSnakes.VisitedSnakes[i]->Transition.Type = Transition_Type_GotPushed;
-				GameState->MarkedSnakes.VisitedSnakes[i]->Transition.GotPushed.Direction = Direction;
+				GameState->MarkedSnakes.MarkedSnakes[i]->Transition.Type = Transition_Type_GotPushed;
+				GameState->MarkedSnakes.MarkedSnakes[i]->Transition.GotPushed.Direction = Direction;
 			}
 			Player->Transition.Type = Transition_Type_Slide;
 			Player->Transition.Slide.NewHeadP = NewPos;
@@ -191,7 +189,7 @@ UpdateLogic(game_state *GameState, game_input *Input){
 					ReloadLevel(GameState);
 					return;
 				}
-				PushVisitedSnakes(Level, &GameState->MarkedSnakes, vec2i{0, -1});
+				PushMarkedSnakes(Level, &GameState->MarkedSnakes, vec2i{0, -1});
 			}
 		}
 	}
