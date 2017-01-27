@@ -3,11 +3,9 @@
 
 #include "timer.h"
 #include "timer.cpp"
-
-#include "globals.h"
-
 #include "vec2.h"
-#include "game.h"
+
+#include "boundry.h"
 #include "platform.h"
 
 #include "circular_buffer.h" 
@@ -18,9 +16,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+//Memory
 #include <sys/mman.h>
-//#include <Windows.h>
 
+#include "ini.h"
 
 internal bool32
 InitPlatform(platform_state *Platform)
@@ -346,10 +345,15 @@ int main(int Count, char *Arguments[])
 
 	game_input OldInput = {};
 	game_input NewInput = {};
-	loaded_game_code GameCode = LoadGameCode();
+	loaded_game_code GameCode = {};
 
 	while (Platform.Running)
 	{
+		if(Platform.FrameCount%GAME_CODE_UPDATE_FRAME_PERIOD == 0){
+			UnloadGameCode(GameCode);
+			GameCode = LoadGameCode();
+		}
+
 		Platform.FPS.start();
 		Platform.Running = ProcessInput(&OldInput, &NewInput, &Platform.Event, &Platform);
 
@@ -376,7 +380,7 @@ int main(int Count, char *Arguments[])
 		SDL_RenderCopy(Platform.Renderer, Platform.OffscreenBuffer.Texture, 0, 0);
 		SDL_RenderPresent(Platform.Renderer);
 		
-		//SDL_Delay(FRAME_DURATION - ((Platform.FPS.get_time() <= FRAME_DURATION) ? Platform.FPS.get_time() : FRAME_DURATION));
+		SDL_Delay(FRAME_DURATION - ((Platform.FPS.get_time() <= FRAME_DURATION) ? Platform.FPS.get_time() : FRAME_DURATION));
 		Platform.FPS.update_avg_fps();
 
 #if DEBUG_PROFILING
@@ -393,11 +397,6 @@ int main(int Count, char *Arguments[])
 
 		OldInput = NewInput;
 		Platform.FrameCount++;
-
-		if(Platform.FrameCount %200 == 0){
-			UnloadGameCode(GameCode);
-			GameCode = LoadGameCode();
-		}
 	}
 	UnloadGameCode(GameCode);
 

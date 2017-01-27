@@ -7,11 +7,12 @@ static color SNAKE_COLORS[3][2] =	{{color{255, 10, 10, 255}, color{255, 76, 48, 
  
 static color TILE_OUTLINE_COLOR = {200, 150, 55, 100};
 
-static color TILE_COLORS[5] = {{154, 120, 55, 255},
+static color TILE_COLORS[6] = {{154, 120, 55, 255},
 							   {200, 200, 55, 255},
 							   {154, 155, 155, 255},
 							   {120, 50, 100, 255},
-							   {255, 50, 200, 255}};
+							   {255, 180, 200, 255},
+							   {255, 200, 220, 255}};
 
 static color TILEMAP_BACKGROUND_COLORS[LEVEL_MAX_LAYER_COUNT] = {	{24, 255, 31, 150}, 
 																   	{200, 60, 255, 150},
@@ -24,13 +25,8 @@ DrawPlayModeElements(game_state *GameState, offscreen_buffer OffscreenBuffer, re
 			rectangle DestRect = GetGridRect(j, k, ScreenOutline);
 
 			uint32 Value = GameState->Level.Occupancy[j][k];
-			if(Value <= 4 && Value > 1 && Value != 3){
-				color TileColor;
-				if(Value == 4){
-				 	TileColor = (GameState->FruitRemaining == 0) ? TILE_COLORS[Tile_Type_Goal] : TILE_COLORS[Tile_Type_Goal-1];
-				}else{
-					TileColor = TILE_COLORS[Value - 1];
-				}
+			if(Value <= Tile_Type_PortalTwo && Value > 1 && Value != 3){
+				color TileColor = TILE_COLORS[Value - 1];
 
 				FillRect(OffscreenBuffer, DestRect, TileColor);
 				DrawRectOutline(OffscreenBuffer, DestRect, TILE_OUTLINE_COLOR);
@@ -58,11 +54,8 @@ DrawEditModeLevel(game_state *GameState, offscreen_buffer OffscreenBuffer, recta
 			rectangle DestRect = GetGridRect(j, k, ScreenOutline);
 
 			uint32 Value = GameState->Level.Occupancy[j][k];
-			if(Value <= 4 && Value > 0){
+			if(Value <= Tile_Type_PortalTwo && Value > 0){
 				color TileColor = TILE_COLORS[Value - 1];
-				if(Value == 4){
-					 TileColor = (GameState->FruitRemaining == 0) ? TILE_COLORS[Tile_Type_Goal] : TILE_COLORS[Tile_Type_Goal-1];
-				}
 
 				FillRect(OffscreenBuffer, DestRect, TileColor);
 				DrawRectOutline(OffscreenBuffer, DestRect, TILE_OUTLINE_COLOR);
@@ -78,7 +71,7 @@ DrawTileModeLevelAndUI(game_state *GameState, offscreen_buffer OffscreenBuffer, 
 			rectangle DestRect = GetGridRect(j, k, ScreenOutline);
 
 			uint32 Value = GameState->Level.Occupancy[j][k];
-			if(Value <= 4 && Value > 0){
+			if(Value <= Tile_Type_Goal && Value > Tile_Type_Empty){
 				color TileColor = TILE_COLORS[Value - 1];
 				FillRect(OffscreenBuffer, DestRect, TileColor);
 				DrawRectOutline(OffscreenBuffer, DestRect, TILE_OUTLINE_COLOR);
@@ -103,7 +96,7 @@ DrawTileModeLevelAndUI(game_state *GameState, offscreen_buffer OffscreenBuffer, 
 internal void
 DrawEditBrush(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline, int32 MouseX, int32 MouseY){
 	rectangle MouseRect = GetGridRectFromScreenCoords(MouseX, MouseY, ScreenOutline);
-	if(GameState->ActiveBrush <= 4 && GameState->ActiveBrush > 0){
+	if(GameState->ActiveBrush <= Tile_Type_PortalTwo && GameState->ActiveBrush > 0){
 		color TileColor = TILE_COLORS[GameState->ActiveBrush - 1];
 		FillRect(OffscreenBuffer, MouseRect, TileColor);
 		DrawRectOutline(OffscreenBuffer, MouseRect, TILE_OUTLINE_COLOR);
@@ -125,6 +118,7 @@ DrawSnakes(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle Sc
 		snake *Snake = &GameState->Level.Snakes[SnakeIndex];
 		
 		switch(Snake->Transition.Type){
+#if 1
 			case  Transition_Type_Slide:
 			{
 				for(int32 p = Snake->Length-1; p > 0; p--){
@@ -144,6 +138,7 @@ DrawSnakes(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle Sc
 				}
 			}
 			break;
+#endif
 			case  Transition_Type_GotPushed:
 			{
 				for(int32 p = Snake->Length-1; p >= 0; p--){

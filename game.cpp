@@ -5,9 +5,10 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "globals.h"
+#include "constants_game.h"
 #include "vec2.h"
 #include <stdint.h>
+#include "boundry.h"
 #include "game.h"
 #include "rendering.h"
 #include "rendering.cpp"
@@ -31,6 +32,7 @@ InitGameState(game_state *GameState, void *MemoryEnd, platform_service_v_table P
 	GameState->CurrentLevelName[0] = '0';
 	GameState->CurrentLevelName[1] = '0';
 	GameState->SpriteAtlas = PlatformServices.DEBUGPlatformLoadBitmapFromFile((char*)"data/tile_sheet.bmp");//(NOTE): Add success check
+	printf("sizeof(game_state) %lu, sizeof(level) %lu,  sizeof(marked_snakes) %lu, sizeof(snake) %lu;\n", sizeof(game_state), sizeof(level), sizeof(marked_snakes), sizeof(snake));
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -71,7 +73,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	}
 
 	rectangle ScreenOutline = {0, 0, OffscreenBuffer.Width, OffscreenBuffer.Height};
-	rectangle GameBoardRect = {0, OffscreenBuffer.Height - LEVEL_MAX_HEIGHT*BLOCK_HEIGHT_IN_PIXELS, LEVEL_MAX_WIDTH*BLOCK_WIDTH_IN_PIXELS, OffscreenBuffer.Height};
+	rectangle GameBoardRect = {0, OffscreenBuffer.Height - LEVEL_MAX_HEIGHT*DEST_TILE_SIZE_IN_PIXELS, LEVEL_MAX_WIDTH*DEST_TILE_SIZE_IN_PIXELS, OffscreenBuffer.Height};
 	GameState->SpriteAtlasRect = {0, OffscreenBuffer.Height - GameState->SpriteAtlas.Height, GameState->SpriteAtlas.Width, OffscreenBuffer.Height};
 
 	//Update and Render

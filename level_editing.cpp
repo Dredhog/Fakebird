@@ -11,7 +11,9 @@ EditLevel(level *Level, rectangle ScreenOutline, uint32 *ActiveBrush, game_input
 					if(Level->Occupancy[MouseGridP.X][MouseGridP.Y] >= SNAKE_ID_OFFSET){
 						DeleteSnakeReorderIDs(Level, Level->Occupancy[MouseGridP.X][MouseGridP.Y]);
 					}
-					snake NewSnake = snake{1, *ActiveBrush-SNAKE_ID_OFFSET};
+					snake NewSnake = {};
+					NewSnake.Length = 1;
+					NewSnake.PaletteIndex = *ActiveBrush-SNAKE_ID_OFFSET;
 					NewSnake.Parts[0].GridP = vec2i{MouseGridP.X, MouseGridP.Y};
 					AddSnakeToLevel(Level, NewSnake);
 					Level->Occupancy[MouseGridP.X][MouseGridP.Y] = Level->Snakes[Level->SnakeCount-1].SnakeID;
@@ -33,10 +35,16 @@ EditLevel(level *Level, rectangle ScreenOutline, uint32 *ActiveBrush, game_input
 						Level->Occupancy[MouseGridP.X][MouseGridP.Y] = Level->Snakes[Level->SnakeCount-1].SnakeID;
 					}
 				}
-			}
-			
-			if(*ActiveBrush <= 4 && Level->Occupancy[MouseGridP.X][MouseGridP.Y] < SNAKE_ID_OFFSET){
-				Level->Occupancy[MouseGridP.X][MouseGridP.Y] = *ActiveBrush;
+			}else if(Level->Occupancy[MouseGridP.X][MouseGridP.Y] < SNAKE_ID_OFFSET){
+				if(*ActiveBrush <= Tile_Type_Goal){
+					Level->Occupancy[MouseGridP.X][MouseGridP.Y] = *ActiveBrush;
+				}else if(Input->MouseLeft.Changed &&
+						(*ActiveBrush == Tile_Type_PortalOne || *ActiveBrush == Tile_Type_PortalTwo)){
+					vec2i OldPortalGridP = Level->PortalPs[*ActiveBrush - Tile_Type_PortalOne];
+					Level->Occupancy[OldPortalGridP.X][OldPortalGridP.Y] = Tile_Type_Empty;
+					Level->Occupancy[MouseGridP.X][MouseGridP.Y] = *ActiveBrush;
+					Level->PortalPs[*ActiveBrush - Tile_Type_PortalOne] = MouseGridP;
+				}
 			}
 		}else if(Input->MouseRight.EndedDown){
 			if(Level->Occupancy[MouseGridP.X][MouseGridP.Y] >= SNAKE_ID_OFFSET){

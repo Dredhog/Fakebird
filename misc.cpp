@@ -63,14 +63,14 @@ ReloadLevel(game_state *GameState, platform_service_v_table PlatformServices)
 	if(LevelHandle.ContentsSize){
 		memcpy(&GameState->Level, LevelHandle.Contents, LevelHandle.ContentsSize);
 		PlatformServices.DEBUGPlatformFreeFileMemory(LevelHandle.Contents);
-		GameState->FruitRemaining = 0;
+		GameState->Level.FruitCount = 0;
 		for(uint32 i = 0; i < GameState->Level.Width; i++){
 			for(uint32 j = 0; j < GameState->Level.Height; j++){
 				uint32 Value = GameState->Level.Occupancy[i][j];
 				if(Value == 2){
-					GameState->FruitRemaining++;
+					GameState->Level.FruitCount++;
 				}else if(Value == 4){
-					GameState->PortalP = vec2i{(int32)i, (int32)j};
+					GameState->Level.GoalP = vec2i{(int32)i, (int32)j};
 				}
 			}
 		}

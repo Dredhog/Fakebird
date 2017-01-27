@@ -1,9 +1,3 @@
-/*
-#include <SDL.h>
-#include <time.h>
-#include "timer.h"
-*/
-
 void Timer::start()
 {
     //Start the timer

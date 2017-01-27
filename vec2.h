@@ -18,6 +18,13 @@ struct vec2 {
 		return vec2{X - v.X, Y - v.Y};
 	}
 
+	bool operator==(const vec2& B) const {
+		return (this->X == B.X && this->Y == B.Y);
+	}
+	bool operator!=(const vec2& B) const {
+		return (this->X != B.X || this->Y != B.Y);
+	}
+
 	vec2& operator+=(const vec2& v) {
 		X += v.X;
 		Y += v.Y;

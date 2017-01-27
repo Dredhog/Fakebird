@@ -9,7 +9,7 @@ PlayNextSnake(game_state *GameState){
 
 internal void
 ClearMarkedSnakes(marked_snakes *MarkedSnakes){
-	for(uint32 i = 0; i < SNAKE_MAX_COUNT; i++){
+	for(uint32 i = 0; i < ArrayCount(MarkedSnakes->IsMarked); i++){
 		MarkedSnakes->IsMarked[i] = false;
 		MarkedSnakes->MarkedSnakes[i] = 0;
 	}
@@ -69,6 +69,7 @@ PushMarkedSnakes(level *Level, marked_snakes *MarkedSnakes, vec2i Dir){
 	}
 }
 
+
 internal bool
 WillAMarkedSnakeBePushedOnSpikes(level *Level, marked_snakes *MarkedSnakes, vec2i Dir){
 	for(int32 s = 0; s < MarkedSnakes->Count; s++){
@@ -81,6 +82,67 @@ WillAMarkedSnakeBePushedOnSpikes(level *Level, marked_snakes *MarkedSnakes, vec2
 		}
 	}
 	return false;
+}
+
+internal uint32
+IfOnPortalGetPortalID(level *Level, uint32 SnakeID){
+	uint32 SnakeIndex = SnakeID - SNAKE_ID_OFFSET;
+	assert(SnakeIndex >= 0 && SnakeIndex < Level->SnakeCount); 
+	snake *Snake = Level->Snakes + SnakeIndex;
+	for(int32 p = 0; p < Snake->Length; p++){
+		vec2i PartP = Snake->Parts[p].GridP;
+		for(int32 PortalIndex = 0; PortalIndex < 2; PortalIndex++){
+			if(PartP == Level->PortalPs[PortalIndex]){
+				return PortalIndex + Tile_Type_PortalOne;
+			}	
+		}
+	}
+	return 0;
+}
+
+internal bool
+CanSnakeBeTeleported(level *Level, uint32 SnakeID, uint32 PortalID){
+	uint32 SnakeIndex = SnakeID - SNAKE_ID_OFFSET;
+	assert(SnakeIndex >= 0 && SnakeIndex < Level->SnakeCount); 
+	int32 PortalIndex = PortalID - Tile_Type_PortalOne;
+	assert(PortalIndex >= 0 && PortalIndex <= 1);
+	vec2i SourcePortalP = Level->PortalPs[PortalIndex];
+	vec2i DestPortalP  = Level->PortalPs[(PortalIndex+1)%2];
+
+	for(int32 p = 0; p < Level->Snakes[SnakeIndex].Length; p++){
+		vec2i GridP = Level->Snakes[SnakeIndex].Parts[p].GridP;
+		vec2i PartOffset = GridP - SourcePortalP;
+		vec2i DestP = DestPortalP + PartOffset;
+		if(	!IsPointInBounds(DestP, Level->Width, Level->Height) ||
+			Level->Occupancy[DestP.X][DestP.Y] == Tile_Type_Solid||
+			Level->Occupancy[DestP.X][DestP.Y] == Tile_Type_Spikes||
+			Level->Occupancy[DestP.X][DestP.Y] == Tile_Type_Fruit||
+			Level->Occupancy[DestP.X][DestP.Y] >= SNAKE_ID_OFFSET){
+			return false;
+		}
+	}
+	return true;
+}
+
+internal void
+TeleportSnake(level *Level, uint32 SnakeID, uint32 SourcePortalID){
+	uint32 SnakeIndex = SnakeID - SNAKE_ID_OFFSET;
+	assert(SnakeIndex >= 0 && SnakeIndex < Level->SnakeCount);
+
+	int32 PortalIndex = SourcePortalID - Tile_Type_PortalOne;
+	assert(PortalIndex >= 0 && PortalIndex <= 1);
+	vec2i SourcePortalP = Level->PortalPs[PortalIndex];
+	vec2i DestPortalP  = Level->PortalPs[(PortalIndex+1)%2];
+
+	for(int32 p = 0; p < Level->Snakes[SnakeIndex].Length; p++){
+		vec2i GridP = Level->Snakes[SnakeIndex].Parts[p].GridP;
+		Level->Occupancy[GridP.X][GridP.Y] = Tile_Type_Empty;
+
+		vec2i PartOffset = GridP - SourcePortalP;
+		vec2i DestP = DestPortalP + PartOffset;
+		Level->Occupancy[DestP.X][DestP.Y] = SnakeID;
+		Level->Snakes[SnakeIndex].Parts[p].GridP = DestP;
+	}
 }
 
 internal void
@@ -101,14 +163,30 @@ GenerateNewStateAfterTransition(level *Level, marked_snakes *MarkedSnakes){
 		snake_part *Tail = Snake->Parts + (Snake->Length-1);
 
 		transition *Transition = &Snake->Transition;
-		if(Transition->Type == Transition_Type_Slide){
-			Level->Occupancy[Tail->GridP.X][Tail->GridP.Y] = Tile_Type_Empty;
-			for(uint32 i = Snake->Length-1; i > 0; i--){
-				Snake->Parts[i].GridP = Snake->Parts[i-1].GridP;
+		switch(Transition->Type){
+			case Transition_Type_Slide:
+			{
+				Level->Occupancy[Tail->GridP.X][Tail->GridP.Y] = Tile_Type_Empty;
+				for(uint32 i = Snake->Length-1; i > 0; i--){
+					Snake->Parts[i].GridP = Snake->Parts[i-1].GridP;
+				}
+				Head->GridP = Transition->Slide.NewHeadP;
+				Level->Occupancy[Head->GridP.X][Head->GridP.Y] = Snake->SnakeID;
+#if DELETE_ON_FINISH
+				if(	Level->FruitCount == 0 && (Level->GoalP == Head->GridP)){
+					DeleteSnakeReorderIDs(Level, Snake->SnakeID);
+				}
+#endif
 			}
-			Head->GridP = Transition->Slide.NewHeadP;
-			Level->Occupancy[Head->GridP.X][Head->GridP.Y] = Snake->SnakeID;
-		}  
+			break;
+			case Transition_Type_Teleportation:
+			{
+				TeleportSnake(Level, Snake->SnakeID, Transition->Teleportation.SourcePortalID);
+			}
+			break;
+			default:
+			break;
+		}
 	}
 }
 
@@ -117,18 +195,30 @@ UpdateLogic(game_state *GameState, game_input *Input, platform_service_v_table P
 	if(!GameState->Player){
 		return;
 	}
-	if(GameState->Transitioning){
-		GameState->t += 0.15f;
-		if(GameState->t <= 1.0f){
-		}else{
-			GameState->t = 0.0f;
-			GameState->Transitioning = false;
-			GenerateNewStateAfterTransition(&GameState->Level, &GameState->MarkedSnakes);
-			for(uint32 i = 0; i < GameState->Level.SnakeCount; i++){
-				GameState->Level.Snakes[i].Transition = {};
-			}
+
+	if(GameState->Player->SnakeID - SNAKE_ID_OFFSET >= GameState->Level.SnakeCount){
+		if(GameState->Level.SnakeCount > 0){
+			GameState->Player = &GameState->Level.Snakes[0];
+		}else if(GameState->Level.SnakeCount == 0){
+			GameState->LevelIndex = (GameState->LevelIndex+1)%GameState->LevelCount;
+			ReloadLevel(GameState, PlatformServices);
 		}
-		return;
+	}
+
+	for(uint32 i = 0; i < GameState->Level.SnakeCount; i++){
+		if(GameState->Level.Snakes[i].Transition.Type != Transition_Type_None){
+			GameState->t += 0.25f;
+			if(GameState->t <= 1.0f){
+				return;
+			}else{
+				GameState->t = 0.0f;
+				GenerateNewStateAfterTransition(&GameState->Level, &GameState->MarkedSnakes);
+				for(uint32 i = 0; i < GameState->Level.SnakeCount; i++){
+					GameState->Level.Snakes[i].Transition = {};
+				}
+			}
+			break;
+		}
 	}
 
 	if(Input->Space.EndedDown && Input->Space.Changed){
@@ -142,6 +232,58 @@ UpdateLogic(game_state *GameState, game_input *Input, platform_service_v_table P
 	level *Level = &GameState->Level;
 	snake_part *Head = Player->Parts;
 
+#if TELEPORTATION_MID_AIR 
+	for(uint32 SnakeIndex = 0; SnakeIndex < Level->SnakeCount; SnakeIndex++){
+		snake *Snake = Level->Snakes + SnakeIndex;
+		uint32 PortalID  = IfOnPortalGetPortalID(Level, Snake->SnakeID);
+		if(!Snake->IsOnPortal && PortalID && CanSnakeBeTeleported(Level, Snake->SnakeID, PortalID)){
+			Snake->Transition.Type = Transition_Type_Teleportation;
+			Snake->Transition.Teleportation.SourcePortalID = PortalID;
+			Snake->IsOnPortal = true;
+		}
+		if(!PortalID){
+			Snake->IsOnPortal = false;
+		}
+		if(PortalID){
+			Snake->IsOnPortal = true;
+		}
+	}
+#endif
+
+#if 1
+	for(uint32 SnakeIndex = 0; SnakeIndex < Level->SnakeCount; SnakeIndex++){
+		uint32 SnakeID = SnakeIndex + SNAKE_ID_OFFSET; 
+
+		while(MarkIfSnakesCanMoove(Level, &GameState->MarkedSnakes, SnakeID, SNAKE_MAX_COUNT+SNAKE_ID_OFFSET, vec2i{0, -1})){
+			if(WillAMarkedSnakeBePushedOnSpikes(Level, &GameState->MarkedSnakes, vec2i{0, -1})){
+				ReloadLevel(GameState, PlatformServices);
+				return;
+			}
+			PushMarkedSnakes(Level, &GameState->MarkedSnakes, vec2i{0, -1});
+
+#if TELEPORTATION_MID_AIR
+			for(int32 i = 0; i < GameState->MarkedSnakes.Count; i++){
+				snake *Snake = GameState->MarkedSnakes.MarkedSnakes[i];
+
+				uint32 PortalID  = IfOnPortalGetPortalID(Level, Snake->SnakeID);
+				if(!Snake->IsOnPortal && PortalID && CanSnakeBeTeleported(Level, Snake->SnakeID, PortalID)){
+					Snake->Transition.Type = Transition_Type_Teleportation;
+					Snake->Transition.Teleportation.SourcePortalID = PortalID;
+					Snake->IsOnPortal = true;
+				}
+				if(!PortalID){
+					Snake->IsOnPortal = false;
+				}
+				if(PortalID){
+					Snake->IsOnPortal = true;
+				}
+				return;
+#endif
+			}
+		}
+	}
+#endif
+
 	vec2i Direction = {};
 	if(Input->ArrowRight.EndedDown && Input->ArrowRight.Changed){
 		Direction = {1, 0};
@@ -153,63 +295,37 @@ UpdateLogic(game_state *GameState, game_input *Input, platform_service_v_table P
 		Direction = {0, -1};
 	}
 	
-	vec2i NewPos = Head->GridP + Direction;
-	if(IsInBounds(NewPos.X, NewPos.Y, Level->Width, Level->Height)){
-		uint32 Value = Level->Occupancy[NewPos.X][NewPos.Y];
+	vec2i NewP = Head->GridP + Direction;
+	if(Direction != vec2i{} && IsInBounds(NewP.X, NewP.Y, Level->Width, Level->Height)){
+		uint32 Value = Level->Occupancy[NewP.X][NewP.Y];
 	
-		if(Value == Tile_Type_Empty || Value == Tile_Type_Goal){
+		if(	Value == Tile_Type_Empty || Value == Tile_Type_Goal ||
+			Value == Tile_Type_PortalOne || Value == Tile_Type_PortalTwo){
 			Player->Transition.Type = Transition_Type_Slide;
-			Player->Transition.Slide.NewHeadP = NewPos;
-			GameState->Transitioning = true;
+			Player->Transition.Slide.NewHeadP = NewP;
 		}else if(Value >= SNAKE_ID_OFFSET && Value != Player->SnakeID && MarkIfSnakesCanMoove(Level, &GameState->MarkedSnakes, Value, Player->SnakeID, Direction)){
 			for(int32 i = 0; i < GameState->MarkedSnakes.Count; i++){
 				GameState->MarkedSnakes.MarkedSnakes[i]->Transition.Type = Transition_Type_GotPushed;
 				GameState->MarkedSnakes.MarkedSnakes[i]->Transition.GotPushed.Direction = Direction;
 			}
 			Player->Transition.Type = Transition_Type_Slide;
-			Player->Transition.Slide.NewHeadP = NewPos;
-			GameState->Transitioning = true;
+			Player->Transition.Slide.NewHeadP = NewP;
 		}else if (Value == Tile_Type_Fruit){
 			Player->Length++;
 			assert(Player->Length <= SNAKE_MAX_LENGTH);
-			GameState->FruitRemaining--;
+			Level->FruitCount--;
 			Player->Transition.Type = Transition_Type_Slide;
-			Player->Transition.Slide.NewHeadP = NewPos;
-			GameState->Transitioning = true;
+			Player->Transition.Slide.NewHeadP = NewP;
 		}
 	}
-	
-#if 1
-	if(!GameState->Transitioning){
-		for(uint32 SnakeIndex = 0; SnakeIndex < Level->SnakeCount; SnakeIndex++){
-			uint32 SnakeID = SnakeIndex + SNAKE_ID_OFFSET; 
-
-			while(MarkIfSnakesCanMoove(Level, &GameState->MarkedSnakes, SnakeID, SNAKE_MAX_COUNT+SNAKE_ID_OFFSET, vec2i{0, -1})){
-				if(WillAMarkedSnakeBePushedOnSpikes(Level, &GameState->MarkedSnakes, vec2i{0, -1})){
-					ReloadLevel(GameState, PlatformServices);
-					return;
-				}
-				PushMarkedSnakes(Level, &GameState->MarkedSnakes, vec2i{0, -1});
-			}
-		}
+	if(Level->Occupancy[Level->GoalP.X][Level->GoalP.Y] == Tile_Type_Empty){
+		Level->Occupancy[Level->GoalP.X][Level->GoalP.Y] = Tile_Type_Goal;
 	}
-#endif
-
-#if 0
-		vec2i CurrentHeadP = Level->Snakes[SnakeIndex].Parts[0].GridP;
-		if(	GameState->FruitRemaining == 0 && (GameState->PortalP.X == CurrentHeadP.X) && (GameState->PortalP.Y == CurrentHeadP.Y)){
-			DeleteSnakeReorderIDs(Level, SnakeID);
-			if(Level->SnakeCount > 0 && SnakeID == GameState->Player->SnakeID){
-				GameState->Player = &GameState->Level.Snakes[0];
-			}else if(GameState->Level.SnakeCount == 0){
-				GameState->LevelIndex = (GameState->LevelIndex+1)%GameState->LevelCount;
-				ReloadLevel(GameState);
-			}
-			return;
-		}
-#endif
-	if(Level->Occupancy[GameState->PortalP.X][GameState->PortalP.Y] == Tile_Type_Empty){
-		Level->Occupancy[GameState->PortalP.X][GameState->PortalP.Y] = Tile_Type_Goal;
+	if(Level->Occupancy[Level->PortalPs[0].X][Level->PortalPs[0].Y] == Tile_Type_Empty){
+		Level->Occupancy[Level->PortalPs[0].X][Level->PortalPs[0].Y] = Tile_Type_PortalOne;
+	}
+	if(Level->Occupancy[Level->PortalPs[1].X][Level->PortalPs[1].Y] == Tile_Type_Empty){
+		Level->Occupancy[Level->PortalPs[1].X][Level->PortalPs[1].Y] = Tile_Type_PortalTwo;
 	}
 }
 
