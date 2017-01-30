@@ -50,7 +50,6 @@ IsPointInsideRect(vec2i P, rectangle Rect){
 
 internal void
 FillRect(offscreen_buffer Buffer, rectangle Rect, color FillColor){
-	FillColor = color{FillColor.R, FillColor.G, FillColor.B, FillColor.A};
 	int32 MinX = MaxInt32(Rect.MinX, 0);
 	int32 MinY = MaxInt32(Rect.MinY, 0);
 	int32 MaxX = MinInt32(Rect.MaxX, (int32)Buffer.Width);
@@ -60,17 +59,17 @@ FillRect(offscreen_buffer Buffer, rectangle Rect, color FillColor){
 		color *Pixels = (color*)((uint8*)Buffer.Memory + Y*Buffer.Pitch);
 		for(int32 X = MinX; X < MaxX; X++){
 			color *DestPixel = Pixels+X;
-			real32 t = ((real32)FillColor.A)/255.0f;
-			DestPixel->R = (uint8)(DestPixel->R*(1.0f-t) + FillColor.R*t);
-			DestPixel->G = (uint8)(DestPixel->G*(1.0f-t) + FillColor.G*t);
-			DestPixel->B = (uint8)(DestPixel->B*(1.0f-t) + FillColor.B*t);
+			real32 t = ((real32)FillColor.RGBA.A)/255.0f;
+			DestPixel->ABGR.R = (uint8)(DestPixel->ABGR.R*(1.0f-t) + FillColor.RGBA.R*t);
+			DestPixel->ABGR.G = (uint8)(DestPixel->ABGR.G*(1.0f-t) + FillColor.RGBA.G*t);
+			DestPixel->ABGR.B = (uint8)(DestPixel->ABGR.B*(1.0f-t) + FillColor.RGBA.B*t);
 		}
 	}
 }
 
 internal void
 DrawRectOutline(offscreen_buffer Buffer, rectangle Rect, color FillColor){
-	FillColor = color{FillColor.R, FillColor.G, FillColor.B, FillColor.A};
+	FillColor = color{FillColor.ABGR.R, FillColor.ABGR.G, FillColor.ABGR.B, FillColor.ABGR.A};
 	//top line
 	if(Rect.MinY >= 0 && Rect.MinY < Buffer.Height){
 		int32 MinX = MaxInt32(Rect.MinX, 0);
@@ -194,10 +193,10 @@ StretchBitmapOrthogonaly(offscreen_buffer Buffer, loaded_bitmap Bitmap, rectangl
 				color *DestPixel = DestStart + Y*Buffer.Width + X;
 				color *SourcePixel = SourceStart + SourceP.Y*Bitmap.Width + SourceP.X;
 
-				real32 t = ((real32)SourcePixel->A)/255.0f;
-				DestPixel->R = (uint8)(DestPixel->R*(1.0f-t) + SourcePixel->R*t);
-				DestPixel->G = (uint8)(DestPixel->G*(1.0f-t) + SourcePixel->G*t);
-				DestPixel->B = (uint8)(DestPixel->B*(1.0f-t) + SourcePixel->B*t);
+				real32 t = ((real32)SourcePixel->ABGR.A)/255.0f;
+				DestPixel->ABGR.R = (uint8)(DestPixel->ABGR.R*(1.0f-t) + SourcePixel->ABGR.R*t);
+				DestPixel->ABGR.G = (uint8)(DestPixel->ABGR.G*(1.0f-t) + SourcePixel->ABGR.G*t);
+				DestPixel->ABGR.B = (uint8)(DestPixel->ABGR.B*(1.0f-t) + SourcePixel->ABGR.B*t);
 			}
 		}
 	}
@@ -277,9 +276,9 @@ BlitBitmap(offscreen_buffer Buffer, loaded_bitmap Bitmap, parallelogram Dest, pa
 					color *DestPixel = DestStart + Y*Buffer.Width + X;
 
 					real32 t = ((real32)SourceTexel->A)/255.0f;
-					DestPixel->R = (uint8)(DestPixel->R*(1.0f-t) + SourceTexel->R*t);
-					DestPixel->G = (uint8)(DestPixel->G*(1.0f-t) + SourceTexel->G*t);
-					DestPixel->B = (uint8)(DestPixel->B*(1.0f-t) + SourceTexel->B*t);
+					DestPixel->ABGR.R = (uint8)(DestPixel->ABGR.R*(1.0f-t) + SourceTexel->ABGR.R*t);
+					DestPixel->ABGR.G = (uint8)(DestPixel->ABGR.G*(1.0f-t) + SourceTexel->ABGR.G*t);
+					DestPixel->ABGR.B = (uint8)(DestPixel->ABGR.B*(1.0f-t) + SourceTexel->ABGR.B*t);
 				}
 			}
 		}

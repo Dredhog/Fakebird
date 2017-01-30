@@ -2,6 +2,23 @@
 #define GAMEPLAY_LOGIC_CPP
 
 internal void
+UpdateOverworld(game_state *GameState, rectangle ScreenOutline, rectangle GameBoardRect, platform_services PlatformServices, game_input *Input){
+	int32 MouseRectIndex = GetOverworldRectIndex(Input->MouseX, Input->MouseY, GameBoardRect);
+	if(Input->MouseLeft.Changed && Input->MouseLeft.EndedDown){
+		if(MouseRectIndex >= 0){
+			GameState->LevelIndex = MouseRectIndex;
+			ReloadLevel(GameState, PlatformServices);
+			GameState->Mode = Game_Mode_Play;
+		}
+	}
+	if(Input->MouseRight.Changed && Input->MouseRight.EndedDown){
+		if(MouseRectIndex >= 0){
+			GameState->Overworld.LevelInfos[MouseRectIndex].Exists = false;
+		}
+	}
+}
+
+internal void
 PlayNextSnake(game_state *GameState){
 	uint64 Index = GameState->Player - GameState->Level.Snakes;
 	GameState->Player = &GameState->Level.Snakes[(Index+1) % GameState->Level.SnakeCount];
@@ -113,10 +130,10 @@ CanSnakeBeTeleported(level *Level, uint32 SnakeID, uint32 PortalID){
 		vec2i GridP = Level->Snakes[SnakeIndex].Parts[p].GridP;
 		vec2i PartOffset = GridP - SourcePortalP;
 		vec2i DestP = DestPortalP + PartOffset;
-		if(	!IsPointInBounds(DestP, Level->Width, Level->Height) ||
-			Level->Occupancy[DestP.X][DestP.Y] == Tile_Type_Solid||
+		if(	!IsPointInBounds(DestP, Level->Width, Level->Height)  ||
+			Level->Occupancy[DestP.X][DestP.Y] == Tile_Type_Solid ||
 			Level->Occupancy[DestP.X][DestP.Y] == Tile_Type_Spikes||
-			Level->Occupancy[DestP.X][DestP.Y] == Tile_Type_Fruit||
+			Level->Occupancy[DestP.X][DestP.Y] == Tile_Type_Fruit ||
 			Level->Occupancy[DestP.X][DestP.Y] >= SNAKE_ID_OFFSET){
 			return false;
 		}
@@ -172,11 +189,6 @@ GenerateNewStateAfterTransition(level *Level, marked_snakes *MarkedSnakes){
 				}
 				Head->GridP = Transition->Slide.NewHeadP;
 				Level->Occupancy[Head->GridP.X][Head->GridP.Y] = Snake->SnakeID;
-#if DELETE_ON_FINISH
-				if(	Level->FruitCount == 0 && (Level->GoalP == Head->GridP)){
-					DeleteSnakeReorderIDs(Level, Snake->SnakeID);
-				}
-#endif
 			}
 			break;
 			case Transition_Type_Teleportation:
@@ -191,7 +203,7 @@ GenerateNewStateAfterTransition(level *Level, marked_snakes *MarkedSnakes){
 }
 
 internal void
-UpdateLogic(game_state *GameState, game_input *Input, platform_service_v_table PlatformServices){
+UpdateLogic(game_state *GameState, game_input *Input, platform_services PlatformServices){
 	if(!GameState->Player){
 		return;
 	}
@@ -200,8 +212,8 @@ UpdateLogic(game_state *GameState, game_input *Input, platform_service_v_table P
 		if(GameState->Level.SnakeCount > 0){
 			GameState->Player = &GameState->Level.Snakes[0];
 		}else if(GameState->Level.SnakeCount == 0){
-			GameState->LevelIndex = (GameState->LevelIndex+1)%GameState->LevelCount;
-			ReloadLevel(GameState, PlatformServices);
+			GameState->Mode = Game_Mode_Overworld;
+			return;
 		}
 	}
 
@@ -240,17 +252,26 @@ UpdateLogic(game_state *GameState, game_input *Input, platform_service_v_table P
 			Snake->Transition.Type = Transition_Type_Teleportation;
 			Snake->Transition.Teleportation.SourcePortalID = PortalID;
 			Snake->IsOnPortal = true;
-		}
-		if(!PortalID){
+			return;
+		}else if(!PortalID){
 			Snake->IsOnPortal = false;
-		}
-		if(PortalID){
-			Snake->IsOnPortal = true;
 		}
 	}
 #endif
 
-#if 1
+#if COMPLETE_AND_DELETE_MID_AIR 
+	if(Level->FruitCount == 0){
+		for(uint32 i = 0; i < Level->SnakeCount; i++){
+			snake *Snake = Level->Snakes + i;
+			if(Snake->Parts[0].GridP == Level->GoalP){
+				DeleteSnakeReorderIDs(Level, Snake->SnakeID);	
+				break;
+			}
+		}
+	}
+#endif
+
+#if GRAVITY
 	for(uint32 SnakeIndex = 0; SnakeIndex < Level->SnakeCount; SnakeIndex++){
 		uint32 SnakeID = SnakeIndex + SNAKE_ID_OFFSET; 
 
@@ -261,25 +282,31 @@ UpdateLogic(game_state *GameState, game_input *Input, platform_service_v_table P
 			}
 			PushMarkedSnakes(Level, &GameState->MarkedSnakes, vec2i{0, -1});
 
+#if COMPLETE_AND_DELETE_MID_AIR 
+			if(Level->FruitCount == 0){
+				for(uint32 i = 0; i < Level->SnakeCount; i++){
+					snake *Snake = Level->Snakes + i;
+					if(Snake->Parts[0].GridP == Level->GoalP){
+						DeleteSnakeReorderIDs(Level, Snake->SnakeID);	
+						return;
+					}
+				}
+			}
+#endif
 #if TELEPORTATION_MID_AIR
 			for(int32 i = 0; i < GameState->MarkedSnakes.Count; i++){
 				snake *Snake = GameState->MarkedSnakes.MarkedSnakes[i];
-
 				uint32 PortalID  = IfOnPortalGetPortalID(Level, Snake->SnakeID);
 				if(!Snake->IsOnPortal && PortalID && CanSnakeBeTeleported(Level, Snake->SnakeID, PortalID)){
 					Snake->Transition.Type = Transition_Type_Teleportation;
 					Snake->Transition.Teleportation.SourcePortalID = PortalID;
 					Snake->IsOnPortal = true;
-				}
-				if(!PortalID){
+					return;
+				}else if(!PortalID){
 					Snake->IsOnPortal = false;
 				}
-				if(PortalID){
-					Snake->IsOnPortal = true;
-				}
-				return;
-#endif
 			}
+#endif
 		}
 	}
 #endif
@@ -298,7 +325,7 @@ UpdateLogic(game_state *GameState, game_input *Input, platform_service_v_table P
 	vec2i NewP = Head->GridP + Direction;
 	if(Direction != vec2i{} && IsInBounds(NewP.X, NewP.Y, Level->Width, Level->Height)){
 		uint32 Value = Level->Occupancy[NewP.X][NewP.Y];
-	
+
 		if(	Value == Tile_Type_Empty || Value == Tile_Type_Goal ||
 			Value == Tile_Type_PortalOne || Value == Tile_Type_PortalTwo){
 			Player->Transition.Type = Transition_Type_Slide;
@@ -328,5 +355,4 @@ UpdateLogic(game_state *GameState, game_input *Input, platform_service_v_table P
 		Level->Occupancy[Level->PortalPs[1].X][Level->PortalPs[1].Y] = Tile_Type_PortalTwo;
 	}
 }
-
 #endif //GAMEPLAY_LOGIC_CPP

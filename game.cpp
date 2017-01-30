@@ -18,58 +18,57 @@
 #include "draw_game.cpp"
 #include "logic.cpp"
 
-internal void
-InitGameState(game_state *GameState, void *MemoryEnd, platform_service_v_table PlatformServices)
-{
-	assert(GameState);
-	char *BaseAddress = ((char*)GameState); 
-	assert((BaseAddress + sizeof(GameState)) <= (char*)MemoryEnd); 
-	GameState->Mode = Game_Mode_Play;
-	GameState->ActiveLayerIndex = 1;
-	GameState->ActiveBrush = 1;
-	GameState->LevelCount = 1;
-	GameState->SpriteAtlasActive = true;
-	GameState->CurrentLevelName[0] = '0';
-	GameState->CurrentLevelName[1] = '0';
-	GameState->SpriteAtlas = PlatformServices.DEBUGPlatformLoadBitmapFromFile((char*)"data/tile_sheet.bmp");//(NOTE): Add success check
-	printf("sizeof(game_state) %lu, sizeof(level) %lu,  sizeof(marked_snakes) %lu, sizeof(snake) %lu;\n", sizeof(game_state), sizeof(level), sizeof(marked_snakes), sizeof(snake));
-}
-
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
 	game_state *GameState = (game_state*)Memory->BaseAddress;
 	if(GameState->MagicChecksum != 11789){
 		GameState->MagicChecksum = 11789;
-		InitGameState(GameState, (char*)Memory->BaseAddress + Memory->Size, Memory->PlatformServices);
-		ReloadLevel(GameState, Memory->PlatformServices);
+		assert(GameState);
+		assert(sizeof(GameState) <= Memory->Size); 
+		GameState->Mode = Game_Mode_Overworld;
+		GameState->ActiveLayerIndex = 1;
+		GameState->ActiveBrush = 1;
+		GameState->SpriteAtlasActive = true;
+		GameState->SpriteAtlas = Memory->PlatformServices.LoadBitmapFromFile((char*)"data/tile_sheet.bmp");//(NOTE): Add success check
+
+		debug_read_file_result OverworldHandle = Memory->PlatformServices.ReadEntireFile((char*)"overworld");
+		if(OverworldHandle .ContentsSize){
+			memcpy(&GameState->Overworld, OverworldHandle.Contents, OverworldHandle.ContentsSize);
+			Memory->PlatformServices.FreeFileMemory(OverworldHandle.Contents);
+			printf("Writing Overworld, success: 1\n");
+		}else{
+			printf("Writing Overworld, success: 0\n");
+		}
 	}
 
 	//State Machine
-	bool32 GameStateChanged = false;
-	if(Input->e.EndedDown && Input->e.Changed){
-		GameState->Mode = (GameState->Mode == Game_Mode_Edit) ? Game_Mode_Play : Game_Mode_Edit;
-		GameStateChanged = true;
-	}else if(Input->t.EndedDown && Input->t.Changed){
-		GameState->Mode = (GameState->Mode == Game_Mode_Tile) ? Game_Mode_Play : Game_Mode_Tile;
-		GameStateChanged = true;
-	}
-	if(GameStateChanged){
-		if(GameState->Mode != Game_Mode_Play){
-			debug_read_file_result LevelHandle = Memory->PlatformServices.DEBUGPlatformReadEntireFile(&GameState->CurrentLevelName[0]);
-			if(LevelHandle.ContentsSize){
-				memcpy(&GameState->Level, LevelHandle.Contents, LevelHandle.ContentsSize);
-				Memory->PlatformServices.DEBUGPlatformFreeFileMemory(LevelHandle.Contents);
-			}
-		}else{
+	if(GameState->Mode != Game_Mode_Overworld){
+		bool32 GameModeChanged = false;
+		if(Input->e.EndedDown && Input->e.Changed){
+			GameState->Mode = (GameState->Mode == Game_Mode_Edit) ? Game_Mode_Play : Game_Mode_Edit;
+			GameModeChanged  = true;
+		}else if(Input->t.EndedDown && Input->t.Changed){
+			GameState->Mode = (GameState->Mode == Game_Mode_Tile) ? Game_Mode_Play : Game_Mode_Tile;
+			GameModeChanged = true;
+		}else if(Input->o.EndedDown && Input->o.Changed ){
+			GameState->Mode = Game_Mode_Overworld;
+		}
+		if(GameModeChanged){
 			ReloadLevel(GameState, Memory->PlatformServices);
 		}
-	}
-	if(Input->LeftCtrl.EndedDown && Input->s.EndedDown && Input->s.Changed){
-		if(GameState->Mode == Game_Mode_Tile){
-			GameState->Level.ForegroundLayerIndex = GameState->ActiveLayerIndex;
+		if(Input->LeftCtrl.EndedDown && Input->s.EndedDown && Input->s.Changed){
+			if(GameState->Mode == Game_Mode_Tile){
+				GameState->Level.ForegroundLayerIndex = GameState->ActiveLayerIndex;
+			}
+			bool32 LevelWriteSuccess = Memory->PlatformServices.WriteEntireFile(GameState->Overworld.ActiveLevelName, sizeof(level), &GameState->Level);
+			printf("Writing Level: \"%s\", success: %d;\n", GameState->Overworld.ActiveLevelName, LevelWriteSuccess);
+
+			if(!GameState->Overworld.LevelInfos[GameState->LevelIndex].Exists){
+				GameState->Overworld.LevelInfos[GameState->LevelIndex].Exists = true;
+				bool32 WriteSuccess = Memory->PlatformServices.WriteEntireFile((char*)&"overworld", sizeof(overworld), &GameState->Overworld);
+				printf("Writing Overworld, success: %d\n", WriteSuccess );
+			}
 		}
-		bool32 WriteSuccess = Memory->PlatformServices.DEBUGPLatformWriteEntireFile(&GameState->CurrentLevelName[0], sizeof(level), &GameState->Level);
-		printf("Save Initiated, (1-success, 0-fail): %d  to %s\n", WriteSuccess, GameState->CurrentLevelName);
 	}
 
 	rectangle ScreenOutline = {0, 0, OffscreenBuffer.Width, OffscreenBuffer.Height};
@@ -79,12 +78,16 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	//Update and Render
 	ClearOffscreenBuffer(OffscreenBuffer, color{100, 200, 255, 255});
 	switch(GameState->Mode){
+		case Game_Mode_Overworld:
+			UpdateOverworld(GameState, ScreenOutline, GameBoardRect, Memory->PlatformServices, Input);
+			DrawOverworld(&GameState->Overworld, OffscreenBuffer, ScreenOutline, GameBoardRect, Input->MouseX, Input->MouseY);
+		break;
 		case Game_Mode_Play:
 			UpdateLogic(GameState, Input, Memory->PlatformServices);
-			DrawPlayModeElements(GameState, OffscreenBuffer, ScreenOutline);
-			DrawPlayModeLevel(GameState, OffscreenBuffer, ScreenOutline, 0, GameState->Level.ForegroundLayerIndex);
+			DrawEditModeLevelWithoutSolidAndSpikeBlocks(GameState, OffscreenBuffer, ScreenOutline);
+			DrawLevelTilesInLayerRange(GameState, OffscreenBuffer, ScreenOutline, 0, GameState->Level.ForegroundLayerIndex);
 			DrawSnakes(GameState, OffscreenBuffer, ScreenOutline);
-			DrawPlayModeLevel(GameState, OffscreenBuffer, ScreenOutline, GameState->Level.ForegroundLayerIndex, LEVEL_MAX_LAYER_COUNT);
+			DrawLevelTilesInLayerRange(GameState, OffscreenBuffer, ScreenOutline, GameState->Level.ForegroundLayerIndex, LEVEL_MAX_LAYER_COUNT);
 		break;
 		case Game_Mode_Edit:
 			EditLevel(&GameState->Level, ScreenOutline, &GameState->ActiveBrush, Input);

@@ -171,15 +171,15 @@ DEBUGPLatformWriteEntireFile(char *Filename, uint64 MemorySize, void *Memory){
 internal void
 AllocateGameMemory(game_memory *GameMemory) {
 	//GameMemory->Size = Kilobytes(200);
-	GameMemory->Size = Megabytes(1);
+	GameMemory->Size = Kilobytes(500);
 	GameMemory->BaseAddress = (void*)Gigabytes(10);
 	//LPVOID BaseAddress = (LPVOID*)Gigabytes(10);
 	GameMemory->BaseAddress = mmap(GameMemory->BaseAddress, GameMemory->Size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	//GameMemory->BaseAddress = VirtualAlloc(BaseAddress, GameMemory->Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-	GameMemory->PlatformServices.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
-	GameMemory->PlatformServices.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
-	GameMemory->PlatformServices.DEBUGPLatformWriteEntireFile = DEBUGPLatformWriteEntireFile;
-	GameMemory->PlatformServices.DEBUGPlatformLoadBitmapFromFile = DEBUGPlatformLoadBitmapFromFile;
+	GameMemory->PlatformServices.ReadEntireFile = DEBUGPlatformReadEntireFile;
+	GameMemory->PlatformServices.FreeFileMemory = DEBUGPlatformFreeFileMemory;
+	GameMemory->PlatformServices.WriteEntireFile = DEBUGPLatformWriteEntireFile;
+	GameMemory->PlatformServices.LoadBitmapFromFile = DEBUGPlatformLoadBitmapFromFile;
 }
 
 internal bool32
@@ -209,8 +209,8 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event, platf
 				NewInput->s.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_t) {
 				NewInput->t.EndedDown = true;
-			} else if (Event->key.keysym.sym == SDLK_n) {
-				NewInput->n.EndedDown = true;
+			} else if (Event->key.keysym.sym == SDLK_o) {
+				NewInput->o.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_UP) {
 				NewInput->ArrowUp.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_DOWN) {
@@ -236,8 +236,8 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event, platf
 				NewInput->s.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_t) {
 				NewInput->t.EndedDown = false;
-			} else if (Event->key.keysym.sym == SDLK_n) {
-				NewInput->n.EndedDown = false;
+			} else if (Event->key.keysym.sym == SDLK_o) {
+				NewInput->o.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_UP) {
 				NewInput->ArrowUp.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_DOWN) {
@@ -338,10 +338,10 @@ int main(int Count, char *Arguments[])
 
 	game_memory GameMemory = {};
 	AllocateGameMemory(&GameMemory);
-	assert(GameMemory.BaseAddress);
+	assert(GameMemory.BaseAddress && GameMemory.Size);
 
-	playback_buffer PlaybackBuffer = NewPlaybackBuffer(32, 16, SafeTruncateUint64(GameMemory.Size));
-	printf("Memory BaseAddress: %lu, GameMemory.Size: %lu MB\n", (uint64)GameMemory.BaseAddress, GameMemory.Size / (uint64)1e6);
+	playback_buffer PlaybackBuffer = NewPlaybackBuffer(32, 8, SafeTruncateUint64(GameMemory.Size));
+	printf("Memory BaseAddress: %lu, GameMemory.Size: %lu KB\n", (uint64)GameMemory.BaseAddress, GameMemory.Size / (uint64)1e3);
 
 	game_input OldInput = {};
 	game_input NewInput = {};

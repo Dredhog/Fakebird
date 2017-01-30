@@ -1,14 +1,24 @@
 #if !defined(RENDERER_H)
 #define RENDERER_H
 
+struct rgba{
+	uint8 R;
+	uint8 G;
+	uint8 B;
+	uint8 A;
+};
+
+struct abgr{
+	uint8 A;
+	uint8 B;
+	uint8 G;
+	uint8 R;
+};
+
 struct color{
 	union{
-		struct{
-			uint8 A;
-			uint8 B;
-			uint8 G;
-			uint8 R;
-		};
+		abgr ABGR;
+		rgba RGBA;
 		uint32 All;
 	};
 };

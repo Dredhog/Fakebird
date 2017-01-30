@@ -6,7 +6,7 @@
 #define internal static
 #define local_persist static
 #define global_variable static
-//
+
 ////PRECISE TYPES/////
 typedef int8_t int8;
 typedef int16_t int16;
@@ -64,7 +64,7 @@ struct game_input{
 			game_button_state 	r;
 			game_button_state 	s;
 			game_button_state 	t;
-			game_button_state 	n;
+			game_button_state 	o;
 			game_button_state 	LeftCtrl;
 			game_button_state 	Space;
 			game_button_state 	ArrowUp;
@@ -85,28 +85,28 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRenderStub){
 }
 
 #define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result  name(char *Filename)
-typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
+typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(platform_read_entire_file);
 
 #define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void  name(void *Memory)
-typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
+typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(platform_free_file_memory);
 
 #define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(char *Filename, uint64 MemorySize, void *Memory)
-typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
+typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(platform_write_entire_file);
 
 #define DEBUG_PLATFORM_LOAD_BITMAP_FROM_FILE(name) loaded_bitmap  name(char *Filename)
-typedef DEBUG_PLATFORM_LOAD_BITMAP_FROM_FILE(debug_platform_load_bitmap_from_file);
+typedef DEBUG_PLATFORM_LOAD_BITMAP_FROM_FILE(platform_load_bitmap_from_file);
 
-struct platform_service_v_table{
-	debug_platform_read_entire_file 		*DEBUGPlatformReadEntireFile;
-	debug_platform_free_file_memory 		*DEBUGPlatformFreeFileMemory;
-	debug_platform_write_entire_file 		*DEBUGPLatformWriteEntireFile;
-	debug_platform_load_bitmap_from_file	*DEBUGPlatformLoadBitmapFromFile;
+struct platform_services{
+	platform_read_entire_file 		*ReadEntireFile;
+	platform_free_file_memory 		*FreeFileMemory;
+	platform_write_entire_file 		*WriteEntireFile;
+	platform_load_bitmap_from_file	*LoadBitmapFromFile;
 };
 
 struct game_memory{
 	void 	*BaseAddress;
 	uint64	Size;
-	platform_service_v_table PlatformServices;
+	platform_services PlatformServices;
 };
 
 #endif //COMMON_H 

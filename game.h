@@ -28,7 +28,7 @@ enum transition_type{
 	Transition_Type_FinishedLevel,
 };
 
-struct transition_slid{
+struct transition_slide{
 	transition_type Type;
 	vec2i NewHeadP;
 };
@@ -50,7 +50,7 @@ struct transition_teleported{
 
 union transition{
 	transition_type 		Type;
-	transition_slid 		Slide;
+	transition_slide 		Slide;
 	transition_fall			Fall;
 	transition_got_pushed 	GotPushed;
 	transition_teleported	Teleportation;
@@ -80,22 +80,23 @@ struct tile{
 };
 
 struct level{
-	uint32 Occupancy[LEVEL_MAX_WIDTH][LEVEL_MAX_HEIGHT];
-	tile Tiles[LEVEL_MAX_LAYER_COUNT][LEVEL_MAX_WIDTH][LEVEL_MAX_HEIGHT];
-	uint32 Width;
-	uint32 Height;
-	snake  Snakes[SNAKE_MAX_COUNT];
-	uint32 SnakeCount;
-	vec2i  PortalPs[2];
-	vec2i  GoalP;
-	uint32 FruitCount;
-	int32 ForegroundLayerIndex;
+	uint32 	Occupancy[LEVEL_MAX_WIDTH][LEVEL_MAX_HEIGHT];
+	tile 	Tiles[LEVEL_MAX_LAYER_COUNT][LEVEL_MAX_WIDTH][LEVEL_MAX_HEIGHT];
+	uint32 	Width;
+	uint32 	Height;
+	snake  	Snakes[SNAKE_MAX_COUNT];
+	uint32 	SnakeCount;
+	vec2i  	PortalPs[2];
+	vec2i  	GoalP;
+	uint32 	FruitCount;
+	int32 	ForegroundLayerIndex;
 };
 
 enum game_mode{
 	Game_Mode_Play,
 	Game_Mode_Edit,
 	Game_Mode_Tile,
+	Game_Mode_Overworld,
 };
 
 struct marked_snakes{
@@ -104,29 +105,39 @@ struct marked_snakes{
 	int32 	Count;
 };
 
-struct game_state{
-	snake	*Player;
+struct level_info{
+	bool32 	Exists;
+};
 
-	level 	Level;
-	uint32	LevelIndex;
-	uint32 	LevelCount;
-	char 	CurrentLevelName[2];
+struct overworld{
+	char 		ActiveLevelName[3];
+	uint32 		LevelCount;
+	level_info	LevelInfos[LEVEL_MAX_COUNT];
+};
+
+struct game_state{
+	snake		*Player;
+
+	overworld 	Overworld;
+	level 		Level;
+	uint32		LevelIndex;
 
 	real32 	t;
 
 	marked_snakes MarkedSnakes;
 
-	uint32 	ActiveBrush;
+	uint32 		ActiveBrush;
 
-	tile	ActiveTileBrush;
-	rectangle SpriteAtlasRect;
-	bool32 SpriteAtlasActive;
-	int32 ActiveLayerIndex;
+	tile		ActiveTileBrush;
+	rectangle 	SpriteAtlasRect;
+	bool32 		SpriteAtlasActive;
+	int32 		ActiveLayerIndex;
 
 	loaded_bitmap SpriteAtlas;
 
-	game_mode Mode;
-	uint32	MagicChecksum;
+	game_mode 	Mode;
+	game_mode	LastFramesGameMode;
+	uint32		MagicChecksum;
 };
 
 #endif //TYPES_H

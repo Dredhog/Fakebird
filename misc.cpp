@@ -55,14 +55,19 @@ DeleteSnakeReorderIDs(level *Level, uint32 SnakeID){
 }
 
 internal void
-ReloadLevel(game_state *GameState, platform_service_v_table PlatformServices)
+ReloadLevel(game_state *GameState, platform_services PlatformServices)
 {
-	GameState->CurrentLevelName[0] = (char)((GameState->LevelIndex/10)+48);
-	GameState->CurrentLevelName[1] = (char)((GameState->LevelIndex%10)+48);
-	debug_read_file_result LevelHandle = PlatformServices.DEBUGPlatformReadEntireFile(GameState->CurrentLevelName);
+	assert(GameState->LevelIndex >= 0 && GameState->LevelIndex <= LEVEL_MAX_COUNT);
+	debug_read_file_result LevelHandle {};
+	GameState->Overworld.ActiveLevelName[0] = (char)((GameState->LevelIndex/10)+48);
+	GameState->Overworld.ActiveLevelName[1] = (char)((GameState->LevelIndex%10)+48);
+	GameState->Overworld.ActiveLevelName[2] = '\0';
+	if(GameState->Overworld.LevelInfos[GameState->LevelIndex].Exists){
+		LevelHandle = PlatformServices.ReadEntireFile(GameState->Overworld.ActiveLevelName);
+	}
 	if(LevelHandle.ContentsSize){
 		memcpy(&GameState->Level, LevelHandle.Contents, LevelHandle.ContentsSize);
-		PlatformServices.DEBUGPlatformFreeFileMemory(LevelHandle.Contents);
+		PlatformServices.FreeFileMemory(LevelHandle.Contents);
 		GameState->Level.FruitCount = 0;
 		for(uint32 i = 0; i < GameState->Level.Width; i++){
 			for(uint32 j = 0; j < GameState->Level.Height; j++){
