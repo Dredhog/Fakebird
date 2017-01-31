@@ -32,7 +32,7 @@ struct offscreen_buffer{
 	void 		*Memory;
 	int32 		Width;
 	int32 		Height;
-	int32		Pitch;
+	int32 		Pitch;
 	int32 		BytesPerPixel;
 };
 
@@ -57,14 +57,15 @@ struct game_input{
 	int32				MouseY;
 
 	union{
-		game_button_state Buttons[14];
+		game_button_state Buttons[16];
 		struct{
 			game_button_state 	e;
+			game_button_state 	n;
+			game_button_state 	o;
 			game_button_state 	p;
 			game_button_state 	r;
 			game_button_state 	s;
 			game_button_state 	t;
-			game_button_state 	o;
 			game_button_state 	LeftCtrl;
 			game_button_state 	Space;
 			game_button_state 	ArrowUp;

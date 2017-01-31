@@ -3,7 +3,6 @@
 
 #include "timer.h"
 #include "timer.cpp"
-#include "vec2.h"
 
 #include "boundry.h"
 #include "platform.h"
@@ -209,6 +208,8 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event, platf
 				NewInput->s.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_t) {
 				NewInput->t.EndedDown = true;
+			} else if (Event->key.keysym.sym == SDLK_n) {
+				NewInput->n.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_o) {
 				NewInput->o.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_UP) {
@@ -236,6 +237,8 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event, platf
 				NewInput->s.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_t) {
 				NewInput->t.EndedDown = false;
+			} else if (Event->key.keysym.sym == SDLK_n) {
+				NewInput->n.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_o) {
 				NewInput->o.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_UP) {

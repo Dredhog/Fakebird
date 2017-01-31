@@ -32,6 +32,12 @@ AddSnakeToLevel(level *Level, snake Snake){
 }
 
 internal void
+AddBitmap(game_state *GameState, loaded_bitmap Bitmap){
+	assert(GameState->BitmapCount >= 0 && GameState->BitmapCount < BITMAP_MAX_COUNT);
+	GameState->Bitmaps[GameState->BitmapCount++] = Bitmap;
+}
+
+internal void
 DeleteSnakeReorderIDs(level *Level, uint32 SnakeID){
 	uint32 RemoveIndex = SnakeID - SNAKE_ID_OFFSET;
 	assert(RemoveIndex >= 0 && RemoveIndex < Level->SnakeCount);

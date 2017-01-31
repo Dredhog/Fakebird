@@ -76,18 +76,25 @@ enum basic_tyle_type{
 };
 
 struct tile{
-	rectangle Source;
+	loaded_bitmap *Bitmap;
+	rectangle SourceRect;
+};
+
+struct mobile_sprite{
+	tile  Sprite;
+	vec3f P;
+	vec3f dP;
 };
 
 struct level{
-	uint32 	Occupancy[LEVEL_MAX_WIDTH][LEVEL_MAX_HEIGHT];
-	tile 	Tiles[LEVEL_MAX_LAYER_COUNT][LEVEL_MAX_WIDTH][LEVEL_MAX_HEIGHT];
 	uint32 	Width;
 	uint32 	Height;
+	uint32 	Occupancy[LEVEL_MAX_WIDTH][LEVEL_MAX_HEIGHT];
+	tile 	Tiles[LEVEL_MAX_LAYER_COUNT][LEVEL_MAX_WIDTH][LEVEL_MAX_HEIGHT];
 	snake  	Snakes[SNAKE_MAX_COUNT];
 	uint32 	SnakeCount;
-	vec2i  	PortalPs[2];
 	vec2i  	GoalP;
+	vec2i  	PortalPs[2];
 	uint32 	FruitCount;
 	int32 	ForegroundLayerIndex;
 };
@@ -100,19 +107,26 @@ enum game_mode{
 };
 
 struct marked_snakes{
-	snake 	*MarkedSnakes[SNAKE_MAX_COUNT];
+	snake 	*Snakes[SNAKE_MAX_COUNT];
 	uint8 	IsMarked[SNAKE_MAX_COUNT];
 	int32 	Count;
 };
 
 struct level_info{
-	bool32 	Exists;
+	bool 	Exists;
 };
 
 struct overworld{
 	char 		ActiveLevelName[3];
 	uint32 		LevelCount;
 	level_info	LevelInfos[LEVEL_MAX_COUNT];
+};
+
+
+struct projection{
+	vec3f	CameraP;
+	real32	UnitInPixels;
+	real32	AspectRatio;
 };
 
 struct game_state{
@@ -122,6 +136,8 @@ struct game_state{
 	level 		Level;
 	uint32		LevelIndex;
 
+	projection 	Projection;
+
 	real32 	t;
 
 	marked_snakes MarkedSnakes;
@@ -129,14 +145,15 @@ struct game_state{
 	uint32 		ActiveBrush;
 
 	tile		ActiveTileBrush;
-	rectangle 	SpriteAtlasRect;
+	rectangle 	SpriteAtlasDestRect;
 	bool32 		SpriteAtlasActive;
 	int32 		ActiveLayerIndex;
 
-	loaded_bitmap SpriteAtlas;
+	loaded_bitmap Bitmaps[BITMAP_MAX_COUNT];
+	int32	      CurrentBitmapIndex;
+	int32		  BitmapCount;
 
 	game_mode 	Mode;
-	game_mode	LastFramesGameMode;
 	uint32		MagicChecksum;
 };
 

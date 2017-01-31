@@ -12,8 +12,8 @@ static const unsigned int EDIT_BRUSH_COUNT = 10;
 static const int LEVEL_MAX_LAYER_COUNT = 3;
 static const int LEVEL_ICON_SIZE_IN_PIXELS = 100;
 
-//Sprite Atlas
-static const int SPRITE_ATLAS_MAX_COUNT = 10;
+//Bitmaps
+static const int BITMAP_MAX_COUNT = 10;
 
 //block
 static int DEST_TILE_SIZE_IN_PIXELS 	= 35;

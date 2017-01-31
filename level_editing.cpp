@@ -62,10 +62,13 @@ EditLevel(level *Level, rectangle ScreenOutline, uint32 *ActiveBrush, game_input
 internal void
 TileLevel(game_state *GameState, rectangle ScreenOutline, rectangle GameBoardRect, game_input *Input){
 	vec2i MouseGridP = GetGridP(Input->MouseX, Input->MouseY, GameBoardRect);
+	if(Input->n.EndedDown && Input->n.Changed){
+		GameState->CurrentBitmapIndex = (GameState->CurrentBitmapIndex+1)%GameState->BitmapCount;
+	}
 	if(Input->MouseLeft.EndedDown){
-		if(GameState->SpriteAtlasActive && IsInsideRect(Input->MouseX, Input->MouseY, GameState->SpriteAtlasRect)){
+		if(GameState->SpriteAtlasActive && IsInsideRect(Input->MouseX, Input->MouseY, GameState->SpriteAtlasDestRect)){
 			if(Input->MouseLeft.Changed){
-				GameState->ActiveTileBrush = tile{GetTileGridRect(Input->MouseX, Input->MouseY, GameState->SpriteAtlasRect)};
+				GameState->ActiveTileBrush = tile{&GameState->Bitmaps[GameState->CurrentBitmapIndex], GetTileGridRect(Input->MouseX, Input->MouseY, GameState->SpriteAtlasDestRect)};
 			}
 		}else if(IsPointInBounds(MouseGridP, GameState->Level.Width, GameState->Level.Height)){
 			GameState->Level.Tiles[GameState->ActiveLayerIndex][MouseGridP.X][MouseGridP.Y] = GameState->ActiveTileBrush;

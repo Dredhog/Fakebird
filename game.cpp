@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 #include "constants_game.h"
-#include "vec2.h"
+#include "vec.h"
 #include <stdint.h>
 #include "boundry.h"
 #include "game.h"
@@ -29,16 +29,19 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		GameState->ActiveLayerIndex = 1;
 		GameState->ActiveBrush = 1;
 		GameState->SpriteAtlasActive = true;
-		GameState->SpriteAtlas = Memory->PlatformServices.LoadBitmapFromFile((char*)"data/tile_sheet.bmp");//(NOTE): Add success check
+		GameState->BitmapCount = 0;
+		GameState->CurrentBitmapIndex = 0;
+		loaded_bitmap SpriteSheet0 = Memory->PlatformServices.LoadBitmapFromFile((char*)"data/tile_sheet.bmp");//(NOTE): Add success check
+		AddBitmap(GameState, SpriteSheet0);
+		loaded_bitmap SpriteSheet1 = Memory->PlatformServices.LoadBitmapFromFile((char*)"data/tile_sheet1.bmp");//(NOTE): Add success check
+		AddBitmap(GameState, SpriteSheet1);
 
 		debug_read_file_result OverworldHandle = Memory->PlatformServices.ReadEntireFile((char*)"overworld");
 		if(OverworldHandle .ContentsSize){
 			memcpy(&GameState->Overworld, OverworldHandle.Contents, OverworldHandle.ContentsSize);
 			Memory->PlatformServices.FreeFileMemory(OverworldHandle.Contents);
-			printf("Writing Overworld, success: 1\n");
-		}else{
-			printf("Writing Overworld, success: 0\n");
 		}
+		printf("Reading Overworld, success: %d\n", (OverworldHandle.Contents != 0));
 	}
 
 	//State Machine
@@ -69,11 +72,18 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				printf("Writing Overworld, success: %d\n", WriteSuccess );
 			}
 		}
+	}else{
+		if(Input->LeftCtrl.EndedDown && Input->s.EndedDown && Input->s.Changed){
+			if(!GameState->Overworld.LevelInfos[GameState->LevelIndex].Exists){
+				bool32 WriteSuccess = Memory->PlatformServices.WriteEntireFile((char*)&"overworld", sizeof(overworld), &GameState->Overworld);
+				printf("Writing Overworld, success: %d\n", WriteSuccess );
+			}
+		}
 	}
 
 	rectangle ScreenOutline = {0, 0, OffscreenBuffer.Width, OffscreenBuffer.Height};
 	rectangle GameBoardRect = {0, OffscreenBuffer.Height - LEVEL_MAX_HEIGHT*DEST_TILE_SIZE_IN_PIXELS, LEVEL_MAX_WIDTH*DEST_TILE_SIZE_IN_PIXELS, OffscreenBuffer.Height};
-	GameState->SpriteAtlasRect = {0, OffscreenBuffer.Height - GameState->SpriteAtlas.Height, GameState->SpriteAtlas.Width, OffscreenBuffer.Height};
+	GameState->SpriteAtlasDestRect = {0, OffscreenBuffer.Height - GameState->Bitmaps[GameState->CurrentBitmapIndex].Height, GameState->Bitmaps[GameState->CurrentBitmapIndex].Width, OffscreenBuffer.Height};
 
 	//Update and Render
 	ClearOffscreenBuffer(OffscreenBuffer, color{100, 200, 255, 255});

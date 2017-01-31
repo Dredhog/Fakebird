@@ -1,8 +1,21 @@
 #if !defined(GRID_RECT_CPP)
 #define GRID_RECT_CPP
 
+internal inline vec2f
+WorldPToScreenP(vec3f WorldP, projection Projection){
+	
+	vec2f ScreenP = vec2f{WorldP.X, WorldP.Y}*Projection.UnitInPixels;
+	return ScreenP;
+}
+
+internal inline vec3f
+ScreenPToWorldP(vec2f ScreenP, real32 Z, projection Projection){
+	vec3f WorldP = vec3f{ScreenP.X/Projection.UnitInPixels, ScreenP.Y/Projection.UnitInPixels, Z};
+	return WorldP;
+}
+
 internal inline rectangle
-GetOverworldGridRect(int32 Index, rectangle GameRect){
+LevelIndexToOverworldGridRect(int32 Index, rectangle GameRect){
 	int32 RectsPerRow = (GameRect.MaxX - GameRect.MinX) / LEVEL_ICON_SIZE_IN_PIXELS;
 	int32 Y = Index/RectsPerRow;
 	int32 X = (Index - (Y*RectsPerRow)) % RectsPerRow;
