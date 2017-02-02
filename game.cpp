@@ -13,10 +13,11 @@
 #include "rendering.h"
 #include "rendering.cpp"
 #include "misc.cpp"
-#include "grid_rect.cpp"
+#include "grids_transformations.cpp"
 #include "level_editing.cpp"
 #include "draw_game.cpp"
 #include "logic.cpp"
+#include "math.h"
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
@@ -26,15 +27,28 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		assert(GameState);
 		assert(sizeof(GameState) <= Memory->Size); 
 		GameState->Mode = Game_Mode_Overworld;
-		GameState->ActiveLayerIndex = 1;
-		GameState->ActiveBrush = 1;
-		GameState->SpriteAtlasActive = true;
-		GameState->BitmapCount = 0;
-		GameState->CurrentBitmapIndex = 0;
-		loaded_bitmap SpriteSheet0 = Memory->PlatformServices.LoadBitmapFromFile((char*)"data/tile_sheet.bmp");//(NOTE): Add success check
-		AddBitmap(GameState, SpriteSheet0);
-		loaded_bitmap SpriteSheet1 = Memory->PlatformServices.LoadBitmapFromFile((char*)"data/tile_sheet1.bmp");//(NOTE): Add success check
-		AddBitmap(GameState, SpriteSheet1);
+		GameState->TileBrush.ActiveLayerIndex = 1;
+		GameState->EditBrush = Tile_Type_Solid;
+		
+		tilemap_palette *Palette = &GameState->TilemapPalette;
+		Palette->Active = true;
+		Palette->TilemapCapacity = BITMAP_MAX_COUNT;
+
+		loaded_bitmap Bitmap = Memory->PlatformServices.LoadBitmapFromFile((char*)"data/tile_sheet.bmp");//(NOTE): Add success check
+		rectangle DestRect = {0, OffscreenBuffer.Height - Bitmap.Height, Bitmap.Width, OffscreenBuffer.Height};
+		AddTilemap(Palette, Bitmap, DestRect, 77, 77);
+
+		Bitmap = Memory->PlatformServices.LoadBitmapFromFile((char*)"data/cloud.bmp");//(NOTE): Add success check
+		DestRect = {0, OffscreenBuffer.Height - Bitmap.Height, Bitmap.Width, OffscreenBuffer.Height};
+		AddTilemap(Palette, Bitmap, DestRect, Bitmap.Width, Bitmap.Height);
+
+		Bitmap = Memory->PlatformServices.LoadBitmapFromFile((char*)"data/dark_cloud.bmp");//(NOTE): Add success check
+		DestRect = {0, OffscreenBuffer.Height - Bitmap.Height, Bitmap.Width, OffscreenBuffer.Height};
+		AddTilemap(Palette, Bitmap, DestRect, Bitmap.Width, Bitmap.Height);
+
+		Bitmap = Memory->PlatformServices.LoadBitmapFromFile((char*)"data/mountain.bmp");//(NOTE): Add success check
+		DestRect = {0, OffscreenBuffer.Height - Bitmap.Height, Bitmap.Width, OffscreenBuffer.Height};
+		AddTilemap(Palette, Bitmap, DestRect, Bitmap.Width, Bitmap.Height);
 
 		debug_read_file_result OverworldHandle = Memory->PlatformServices.ReadEntireFile((char*)"overworld");
 		if(OverworldHandle .ContentsSize){
@@ -61,7 +75,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		}
 		if(Input->LeftCtrl.EndedDown && Input->s.EndedDown && Input->s.Changed){
 			if(GameState->Mode == Game_Mode_Tile){
-				GameState->Level.ForegroundLayerIndex = GameState->ActiveLayerIndex;
+				GameState->Level.ForegroundLayerIndex = GameState->TileBrush.ActiveLayerIndex;
 			}
 			bool32 LevelWriteSuccess = Memory->PlatformServices.WriteEntireFile(GameState->Overworld.ActiveLevelName, sizeof(level), &GameState->Level);
 			printf("Writing Level: \"%s\", success: %d;\n", GameState->Overworld.ActiveLevelName, LevelWriteSuccess);
@@ -83,7 +97,23 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 	rectangle ScreenOutline = {0, 0, OffscreenBuffer.Width, OffscreenBuffer.Height};
 	rectangle GameBoardRect = {0, OffscreenBuffer.Height - LEVEL_MAX_HEIGHT*DEST_TILE_SIZE_IN_PIXELS, LEVEL_MAX_WIDTH*DEST_TILE_SIZE_IN_PIXELS, OffscreenBuffer.Height};
-	GameState->SpriteAtlasDestRect = {0, OffscreenBuffer.Height - GameState->Bitmaps[GameState->CurrentBitmapIndex].Height, GameState->Bitmaps[GameState->CurrentBitmapIndex].Width, OffscreenBuffer.Height};
+	UpdateTilemapRects(&GameState->TilemapPalette, OffscreenBuffer.Height);
+
+#if 1
+	{
+		projection Projection = {}; 
+		Projection.CameraP = vec3f{0, 0, 1.0f};
+		Projection.UnitInPixels = (real32)DEST_TILE_SIZE_IN_PIXELS;
+		Projection.FocalLength = 1;
+		Projection.GridWidth = GameState->Level.Width;
+		Projection.GridHeight = GameState->Level.Height;
+		Projection.ScreenWidthInPixels = OffscreenBuffer.Width;
+		Projection.ScreenHeightInPixels = OffscreenBuffer.Height;
+		GameState->Projection = Projection;
+	}
+#else
+	GameState->Projection.CameraP.Z += 0.001f;
+#endif
 
 	//Update and Render
 	ClearOffscreenBuffer(OffscreenBuffer, color{100, 200, 255, 255});
@@ -94,21 +124,23 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		break;
 		case Game_Mode_Play:
 			UpdateLogic(GameState, Input, Memory->PlatformServices);
+			UpdateAnimatedTiles(&GameState->Level);
+			DrawAnimatedTiles(&GameState->Level, OffscreenBuffer, &GameState->Projection);
 			DrawEditModeLevelWithoutSolidAndSpikeBlocks(GameState, OffscreenBuffer, ScreenOutline);
-			DrawLevelTilesInLayerRange(GameState, OffscreenBuffer, ScreenOutline, 0, GameState->Level.ForegroundLayerIndex);
-			DrawSnakes(GameState, OffscreenBuffer, ScreenOutline);
-			DrawLevelTilesInLayerRange(GameState, OffscreenBuffer, ScreenOutline, GameState->Level.ForegroundLayerIndex, LEVEL_MAX_LAYER_COUNT);
+			DrawSnakesWithPerspective(GameState, OffscreenBuffer, ScreenOutline);
+			DrawLevelTilesInLayerRange(&GameState->Level, OffscreenBuffer, &GameState->Projection, 0, LEVEL_MAX_LAYER_COUNT);
 		break;
 		case Game_Mode_Edit:
-			EditLevel(&GameState->Level, ScreenOutline, &GameState->ActiveBrush, Input);
+			EditLevel(&GameState->Level, ScreenOutline, &GameState->EditBrush, Input);
 			DrawEditModeLevel(GameState, OffscreenBuffer, ScreenOutline);
-			DrawSnakes(GameState, OffscreenBuffer, ScreenOutline);
+			DrawSnakesInEditMode(GameState, OffscreenBuffer, ScreenOutline);
 			DrawEditBrush(GameState, OffscreenBuffer, ScreenOutline, Input->MouseX, Input->MouseY);
 		break;
 		case Game_Mode_Tile:
-			TileLevel(GameState, ScreenOutline, GameBoardRect, Input);
+			TileLevel(&GameState->Level, &GameState->TilemapPalette, &GameState->TileBrush, ScreenOutline, GameBoardRect, Input, &GameState->Projection);
+			DrawAnimatedTiles(&GameState->Level, OffscreenBuffer, &GameState->Projection);
 			DrawTileModeLevelAndUI(GameState, OffscreenBuffer, ScreenOutline);
-			DrawTileBrush(GameState, OffscreenBuffer, ScreenOutline, Input->MouseX, Input->MouseY);
+			DrawTileBrush(&GameState->TileBrush, OffscreenBuffer, ScreenOutline, Input->MouseX, Input->MouseY, &GameState->Projection);
 		break;
 	}
 	DrawRectOutline(OffscreenBuffer, GameBoardRect, color{255, 255, 255, 255});

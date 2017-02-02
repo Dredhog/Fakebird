@@ -5,7 +5,7 @@ static color SNAKE_COLORS[3][2] =	{{color{255, 10, 10, 255}, color{255, 76, 48, 
 									{color{0, 76, 255, 255}, color{0, 136, 255, 255}},
 									{color{24, 209, 31, 255}, color{71, 219, 72, 255}}};
  
-static color TILE_OUTLINE_COLOR = {200, 150, 55, 100};
+static color TILE_OUTLINE_COLOR = {255, 0, 255, 255};
 
 static color TILE_COLORS[6] = {{154, 120, 55, 255},
 							   {200, 200, 55, 255},
@@ -14,9 +14,46 @@ static color TILE_COLORS[6] = {{154, 120, 55, 255},
 							   {255, 180, 200, 255},
 							   {255, 200, 220, 255}};
 
-static color TILEMAP_BACKGROUND_COLORS[LEVEL_MAX_LAYER_COUNT] = {	{24, 255, 31, 150}, 
-																   	{200, 60, 255, 150},
-																   	{200, 100, 40, 150}};
+static color TILEMAP_BACKGROUND_COLORS[LEVEL_MAX_LAYER_COUNT] = {	{24, 255, 31, 100}, 
+																   	{200, 60, 255, 100},
+																   	{200, 100, 40, 100}};
+static color TILE_BRUSH_TYPE_COLORS[2] = {	{0, 0, 255, 150},
+										{0, 255, 0, 150}};
+
+internal void
+DrawLevelTilesInLayerRange(level *Level, offscreen_buffer TargetBuffer, projection *Projection, int32 StartLayer, int32 EndLayer){
+	for(int32 i = StartLayer; i < EndLayer; i++){
+		for(uint32 j = 0; j < Level->Width; j++){
+			for(uint32 k = 0; k < Level->Height; k++){
+				rectangle DestRect = GridPToScreenRect(vec2f{(real32)j, (real32)k}, i, Projection);
+
+				tile CurrentTile = Level->Tiles[i][j][k];
+				if(CurrentTile.Bitmap){
+					StretchBitmapOrthogonaly(TargetBuffer, *CurrentTile.Bitmap, DestRect, CurrentTile.SourceRect);
+				}
+			}
+		}
+	}
+}
+
+internal void
+UpdateAnimatedTiles(level *Level){
+	for(int32 i = 0; i < Level->AnimatedTileCount; i++){
+		animated_tile *Tile = Level->AnimatedTiles + i;
+		Tile->P += Tile->dP;
+	}
+}
+
+internal void
+DrawAnimatedTiles(level *Level, offscreen_buffer TargetBuffer, projection *Projection){
+	for(int32 i = 0; i < Level->AnimatedTileCount; i++){
+		animated_tile *Tile = Level->AnimatedTiles + i;
+		rectangle DestRect = WorldRectToScreenRect(Tile->P, Tile->WidthInUnits, Tile->HeightInUnits, Projection);
+		if(Tile->Bitmap){
+			StretchBitmapOrthogonaly(TargetBuffer, *Tile->Bitmap, DestRect, Tile->SourceRect);
+		}
+	}
+}
 
 internal void
 DrawOverworld(overworld *Overworld, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline, rectangle GameBoardRect, int32 MouseX, int32 MouseY){
@@ -38,7 +75,7 @@ internal void
 DrawEditModeLevelWithoutSolidAndSpikeBlocks(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline){
 	for(uint32 j = 0; j < GameState->Level.Width; j++){
 		for(uint32 k = 0; k < GameState->Level.Height; k++){
-			rectangle DestRect = GetGridRect(j, k, ScreenOutline);
+			rectangle DestRect = GridPToScreenRect(vec2f{(real32)j, (real32)k}, 0, &GameState->Projection);
 
 			uint32 Value = GameState->Level.Occupancy[j][k];
 			if(Value <= Tile_Type_PortalTwo && Value > 1 && Value != 3){
@@ -46,21 +83,6 @@ DrawEditModeLevelWithoutSolidAndSpikeBlocks(game_state *GameState, offscreen_buf
 
 				FillRect(OffscreenBuffer, DestRect, TileColor);
 				DrawRectOutline(OffscreenBuffer, DestRect, TILE_OUTLINE_COLOR);
-			}
-		}
-	}
-}
-
-internal void
-DrawLevelTilesInLayerRange(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline, int32 StartLayer, int32 EndLayer){
-	for(int32 i = StartLayer; i < EndLayer; i++){
-		for(uint32 j = 0; j < GameState->Level.Width; j++){
-			for(uint32 k = 0; k < GameState->Level.Height; k++){
-				rectangle GridRect = GetGridRect(j, k, ScreenOutline);
-				tile CurrentTile = GameState->Level.Tiles[i][j][k];
-				if(CurrentTile.Bitmap){
-					StretchBitmapOrthogonaly(OffscreenBuffer, *CurrentTile.Bitmap, GridRect, CurrentTile.SourceRect);
-				}
 			}
 		}
 	}
@@ -86,7 +108,7 @@ DrawEditModeLevel(game_state *GameState, offscreen_buffer OffscreenBuffer, recta
 internal void
 DrawTileModeLevelAndUI(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline){
 	DrawEditModeLevel(GameState, OffscreenBuffer, ScreenOutline);
-	for(int32 i = 0; i <= GameState->ActiveLayerIndex; i++){
+	for(int32 i = 0; i <= GameState->TileBrush.ActiveLayerIndex; i++){
 		for(uint32 j = 0; j < GameState->Level.Width; j++){
 			for(uint32 k = 0; k < GameState->Level.Height; k++){
 				rectangle GridRect = GetGridRect(j, k, ScreenOutline);
@@ -97,37 +119,64 @@ DrawTileModeLevelAndUI(game_state *GameState, offscreen_buffer OffscreenBuffer, 
 			}
 		}
 	}
-	if(GameState->SpriteAtlasActive){
-		color Color = TILEMAP_BACKGROUND_COLORS[GameState->ActiveLayerIndex];
-		FillRect(OffscreenBuffer, GameState->SpriteAtlasDestRect, Color);
-		loaded_bitmap CurrentBitmap = GameState->Bitmaps[GameState->CurrentBitmapIndex];
-		StretchBitmapOrthogonaly(OffscreenBuffer, CurrentBitmap, GameState->SpriteAtlasDestRect, rectangle{0, 0, CurrentBitmap.Width, CurrentBitmap.Height});
+	if(GameState->TilemapPalette.Active){
+		color Color = TILEMAP_BACKGROUND_COLORS[GameState->TileBrush.ActiveLayerIndex];
+		rectangle TilemapRect = GetTilemapDestRect(&GameState->TilemapPalette);
+		loaded_bitmap *TilemapBitmap = GetTilemapBitmap(&GameState->TilemapPalette);
+		FillRect(OffscreenBuffer, TilemapRect, Color);
+		StretchBitmapOrthogonaly(OffscreenBuffer, *TilemapBitmap, TilemapRect, rectangle{0, 0, TilemapBitmap->Width, TilemapBitmap->Height});
 	}
 }
 
 internal void
 DrawEditBrush(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline, int32 MouseX, int32 MouseY){
 	rectangle MouseRect = GetGridRectFromScreenCoords(MouseX, MouseY, ScreenOutline);
-	if(GameState->ActiveBrush <= Tile_Type_PortalTwo && GameState->ActiveBrush > 0){
-		color TileColor = TILE_COLORS[GameState->ActiveBrush - 1];
+	if(GameState->EditBrush <= Tile_Type_PortalTwo && GameState->EditBrush > 0){
+		color TileColor = TILE_COLORS[GameState->EditBrush - 1];
 		FillRect(OffscreenBuffer, MouseRect, TileColor);
 		DrawRectOutline(OffscreenBuffer, MouseRect, TILE_OUTLINE_COLOR);
-	}else if(GameState->ActiveBrush >= SNAKE_ID_OFFSET && GameState->ActiveBrush < SNAKE_ID_OFFSET + 3){
-		color SnakeColor = SNAKE_COLORS[GameState->ActiveBrush-SNAKE_ID_OFFSET][0];
+	}else if(GameState->EditBrush >= SNAKE_ID_OFFSET && GameState->EditBrush < SNAKE_ID_OFFSET + 3){
+		color SnakeColor = SNAKE_COLORS[GameState->EditBrush-SNAKE_ID_OFFSET][0];
 		FillRect(OffscreenBuffer, MouseRect, SnakeColor);
 	}
 }
 
 internal void
-DrawTileBrush(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline, int32 MouseX, int32 MouseY){
-	rectangle TileBrushRect = GetGridRectFromScreenCoords(MouseX, MouseY, ScreenOutline);
-	if(GameState->ActiveTileBrush.Bitmap){
-		StretchBitmapOrthogonaly(OffscreenBuffer, *GameState->ActiveTileBrush.Bitmap, TileBrushRect, GameState->ActiveTileBrush.SourceRect);
+DrawTileBrush(tile_brush *TileBrush, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline, int32 MouseX, int32 MouseY, projection *Projection){
+	rectangle TileBrushRect = {};
+	if(!TileBrush->IsOffGridMode){
+		TileBrushRect = GetGridRectFromScreenCoords(MouseX, MouseY, ScreenOutline);
+	}else{
+		vec3f MouseWorldP = ScreenPToWorldP(vec2f{(real32)MouseX, (real32)MouseY}, TileBrush->WorldZ, Projection);
+		TileBrushRect = WorldRectToScreenRect(MouseWorldP, TileBrush->WidthInUnits, TileBrush->HeightInUnits, Projection); 
+	}
+
+	if(TileBrush->Tile.Bitmap){
+		StretchBitmapOrthogonaly(OffscreenBuffer, *TileBrush->Tile.Bitmap, TileBrushRect, TileBrush->Tile.SourceRect);
+		if(TileBrush->IsOffGridMode){
+			DrawRectOutline(OffscreenBuffer, TileBrushRect, TILE_BRUSH_TYPE_COLORS[TileBrush->Type]);
+		}
 	}
 }
 
 internal void
-DrawSnakes(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline){
+DrawSnakesInEditMode(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline){
+	for(uint32 SnakeIndex = 0; SnakeIndex < GameState->Level.SnakeCount; SnakeIndex++){
+		snake *Snake = &GameState->Level.Snakes[SnakeIndex];
+		for(int32 p = 0; p < Snake->Length; p++){
+			vec2i PartPos =  Snake->Parts[p].GridP;
+			rectangle DestRect = GetGridRect(PartPos.X, PartPos.Y, ScreenOutline);
+			color Color = SNAKE_COLORS[Snake->PaletteIndex][p % 2];
+			FillRect(OffscreenBuffer, DestRect, Color);
+			if(p == 0 && Snake == GameState->Player){
+				DrawRectOutline(OffscreenBuffer, DestRect, {200, 0, 255, 255});
+			}
+		}
+	}
+}
+
+internal void
+DrawSnakesWithPerspective(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle ScreenOutline){
 	for(uint32 SnakeIndex = 0; SnakeIndex < GameState->Level.SnakeCount; SnakeIndex++){
 		snake *Snake = &GameState->Level.Snakes[SnakeIndex];
 		
@@ -136,7 +185,7 @@ DrawSnakes(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle Sc
 			{
 				for(int32 p = 0; p < Snake->Length; p++){
 					vec2i PartPos =  Snake->Parts[p].GridP;
-					rectangle DestRect = GetGridRect(PartPos.X, PartPos.Y, ScreenOutline);
+					rectangle DestRect = GridPToScreenRect(vec2f{(real32)PartPos.X, (real32)PartPos.Y}, 0, &GameState->Projection);
 					color Color = SNAKE_COLORS[Snake->PaletteIndex][p % 2];
 					FillRect(OffscreenBuffer, DestRect, Color);
 					if(p == 0 && Snake == GameState->Player){
@@ -144,18 +193,21 @@ DrawSnakes(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle Sc
 					}
 				}
 			}
+			break;
 			case  Transition_Type_Slide:
 			{
 				for(int32 p = Snake->Length-1; p > 0; p--){
-					vec2i OldP =  Snake->Parts[p].GridP;
-					vec2i NewP = Snake->Parts[p-1].GridP;
-					rectangle DestRect = LerpGridRects(OldP, NewP, GameState->t, ScreenOutline);
+					vec2f OldP =  Vec2f(Snake->Parts[p].GridP);
+					vec2f NewP = Vec2f(Snake->Parts[p-1].GridP);
+					vec2f LerpedP = OldP*(1.0f - GameState->t) + NewP*GameState->t;
+					rectangle DestRect = GridPToScreenRect(LerpedP, 0, &GameState->Projection);
 					color Color = SNAKE_COLORS[Snake->PaletteIndex][p % 2];
 					FillRect(OffscreenBuffer, DestRect, Color);
 				}
-				vec2i OldPos =  Snake->Parts[0].GridP;
-				vec2i NewPos  = Snake->Transition.Slide.NewHeadP;
-				rectangle DestRect = LerpGridRects(OldPos, NewPos, GameState->t, ScreenOutline);
+				vec2f OldP =  Vec2f(Snake->Parts[0].GridP);
+				vec2f NewP = Vec2f(Snake->Transition.Slide.NewHeadP);
+				vec2f LerpedP = OldP*(1.0f - GameState->t) + NewP*GameState->t;
+				rectangle DestRect = GridPToScreenRect(LerpedP, 0, &GameState->Projection);
 				color Color = SNAKE_COLORS[Snake->PaletteIndex][0];
 				FillRect(OffscreenBuffer, DestRect, Color);
 				if(Snake == GameState->Player){
@@ -166,9 +218,10 @@ DrawSnakes(game_state *GameState, offscreen_buffer OffscreenBuffer, rectangle Sc
 			case  Transition_Type_GotPushed:
 			{
 				for(int32 p = Snake->Length-1; p >= 0; p--){
-					vec2i OldP = Snake->Parts[p].GridP;
-					vec2i NewP = OldP + Snake->Transition.GotPushed.Direction;	
-					rectangle DestRect = LerpGridRects(OldP, NewP, GameState->t, ScreenOutline);
+					vec2f OldP = Vec2f(Snake->Parts[p].GridP);
+					vec2f NewP = OldP + Vec2f(Snake->Transition.GotPushed.Direction);
+					vec2f LerpedP = OldP*(1.0f - GameState->t) + NewP*GameState->t;
+					rectangle DestRect = GridPToScreenRect(LerpedP, 0, &GameState->Projection);
 					color Color = SNAKE_COLORS[Snake->PaletteIndex][p % 2];
 					FillRect(OffscreenBuffer, DestRect, Color);
 				}

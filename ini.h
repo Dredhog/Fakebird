@@ -2,11 +2,11 @@
 #define CONSTANTS_PLATFORM_H
 
 //display
-static const int SCREEN_WIDTH 	= 1024;
-static const int SCREEN_HEIGHT 	= 800;
+static const int SCREEN_WIDTH 	= 875;
+static const int SCREEN_HEIGHT 	= 700;
 
 //update
-static const int FRAME_DURATION = 40;
-static const int GAME_CODE_UPDATE_FRAME_PERIOD  = 200;
+static const int FRAME_DURATION = 16;
+static const int GAME_CODE_UPDATE_FRAME_PERIOD  = 50;
 
 #endif //CONSTANTS_PLATFORM_H

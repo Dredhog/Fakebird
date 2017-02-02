@@ -10,7 +10,7 @@ IsInBounds(int32 i, int32 j, int32 MaxI, int32 MaxJ){
 }
 
 internal inline bool32
-IsPointInBounds(vec2i P, int32 MaxI, int32 MaxJ){
+IsPInBounds(vec2i P, int32 MaxI, int32 MaxJ){
 	return IsInBounds(P.X, P.Y, MaxI, MaxJ);
 }
 
@@ -19,8 +19,7 @@ CapInt32(int32 a, int32 t, int32 b){
 	if(t < a){
 		return a;
 	}else if (t > b){
-		return b;
-	}
+		return b; }
 	return t;
 }
 
@@ -31,10 +30,47 @@ AddSnakeToLevel(level *Level, snake Snake){
 	Level->Snakes[Level->SnakeCount++] = Snake;
 }
 
+internal animated_tile *
+AddMobileTile(level *Level, vec3f WorldP, tile_brush *TileBrush){
+	assert(Level->AnimatedTileCount >= 0 && Level->AnimatedTileCount < Level->AnimatedTileCapacity);
+	return Level->AnimatedTiles + Level->AnimatedTileCount++;
+}
+
 internal void
-AddBitmap(game_state *GameState, loaded_bitmap Bitmap){
-	assert(GameState->BitmapCount >= 0 && GameState->BitmapCount < BITMAP_MAX_COUNT);
-	GameState->Bitmaps[GameState->BitmapCount++] = Bitmap;
+AddTilemap(tilemap_palette *Palette, loaded_bitmap Bitmap, rectangle DestRect, int32 GridSpacingX, int32 GridSpacingY){
+	assert(Palette->TilemapCount >= 0 && Palette->TilemapCount < Palette->TilemapCapacity);
+	tilemap *New = &Palette->Tilemaps[Palette->TilemapCount++];
+	New->Bitmap = Bitmap;
+	New->DestRect = DestRect;
+	New->GridSpacingX = GridSpacingX;
+	New->GridSpacingY = GridSpacingY;
+}
+
+internal void
+SwitchTilemap(tilemap_palette *Palette){
+	Palette->TilemapIndex = (Palette->TilemapIndex+1)%Palette->TilemapCount;
+}
+
+internal rectangle
+GetTilemapDestRect(tilemap_palette *Palette){
+	return Palette->Tilemaps[Palette->TilemapIndex].DestRect;
+}
+internal loaded_bitmap*
+GetTilemapBitmap(tilemap_palette *Palette){
+	return &Palette->Tilemaps[Palette->TilemapIndex].Bitmap;
+}
+
+internal void
+UpdateTilemapRects(tilemap_palette *Palette, int32 NewScreenHeight){
+	for(int32 i = 0; i < Palette->TilemapCount; i++){
+		tilemap *Tilemap = &Palette->Tilemaps[i];
+		Tilemap->DestRect = {0, NewScreenHeight - Tilemap->Bitmap.Height, Tilemap->Bitmap.Width, NewScreenHeight};
+	}
+}
+
+internal inline tilemap*
+GetTilemap(tilemap_palette *Palette){
+	return &Palette->Tilemaps[Palette->TilemapIndex];
 }
 
 internal void
@@ -85,12 +121,21 @@ ReloadLevel(game_state *GameState, platform_services PlatformServices)
 				}
 			}
 		}
-
+		if(GameState->Level.GoalP == vec2i{}){
+			GameState->Level.GoalP = vec2i{-1, -1};
+		}
+		if(GameState->Level.PortalPs[0] == vec2i{}){
+			GameState->Level.PortalPs[0] = vec2i{-1, -1};
+		}
+		if(GameState->Level.PortalPs[1] == vec2i{}){
+			GameState->Level.PortalPs[1] = vec2i{-1, -1};
+		}
 		if(GameState->Level.SnakeCount > 0){
 			GameState->Player = &GameState->Level.Snakes[0];
 		}else{
 			GameState->Player = {};
 		}
+		GameState->Level.AnimatedTileCapacity = ANIMATED_TILE_MAX_COUNT;
 	}else{
 		GameState->Level = {}; 
 		GameState->Player = {};

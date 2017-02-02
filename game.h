@@ -80,8 +80,11 @@ struct tile{
 	rectangle SourceRect;
 };
 
-struct mobile_sprite{
-	tile  Sprite;
+struct animated_tile{
+	loaded_bitmap *Bitmap;
+	rectangle SourceRect;
+	real32 WidthInUnits;
+	real32 HeightInUnits;
 	vec3f P;
 	vec3f dP;
 };
@@ -92,6 +95,10 @@ struct level{
 	uint32 	Occupancy[LEVEL_MAX_WIDTH][LEVEL_MAX_HEIGHT];
 	tile 	Tiles[LEVEL_MAX_LAYER_COUNT][LEVEL_MAX_WIDTH][LEVEL_MAX_HEIGHT];
 	snake  	Snakes[SNAKE_MAX_COUNT];
+	animated_tile  AnimatedTiles[ANIMATED_TILE_MAX_COUNT];
+	int32 AnimatedTileCapacity;
+	int32 AnimatedTileCount;
+	
 	uint32 	SnakeCount;
 	vec2i  	GoalP;
 	vec2i  	PortalPs[2];
@@ -126,33 +133,59 @@ struct overworld{
 struct projection{
 	vec3f	CameraP;
 	real32	UnitInPixels;
-	real32	AspectRatio;
+	real32  FocalLength;
+	int32	GridWidth;
+	int32	GridHeight;
+	int32 	ScreenWidthInPixels;
+	int32 	ScreenHeightInPixels;
+};
+
+struct tilemap{
+	loaded_bitmap Bitmap;
+	rectangle   DestRect;
+	int32 GridSpacingX;
+	int32 GridSpacingY;
+};
+
+struct tilemap_palette{
+	tilemap Tilemaps[BITMAP_MAX_COUNT];
+	int32	TilemapCapacity;
+	int32	TilemapCount;
+	int32	TilemapIndex;
+	bool32  Active;
+};
+
+enum tile_brush_type{
+	TileBrush_Static,
+	TileBrush_Mobile,
+};
+
+struct tile_brush{
+	tile	Tile;
+	real32	WorldZ;
+	real32	WidthInUnits;
+	real32	HeightInUnits;
+	bool32	IsOffGridMode;
+	int32 	ActiveLayerIndex;
+
+	tile_brush_type Type;
 };
 
 struct game_state{
 	snake		*Player;
+	marked_snakes MarkedSnakes;
 
 	overworld 	Overworld;
 	level 		Level;
 	uint32		LevelIndex;
 
+	tilemap_palette TilemapPalette;
+	tile_brush		TileBrush;
+	uint32 			EditBrush;
+
 	projection 	Projection;
 
 	real32 	t;
-
-	marked_snakes MarkedSnakes;
-
-	uint32 		ActiveBrush;
-
-	tile		ActiveTileBrush;
-	rectangle 	SpriteAtlasDestRect;
-	bool32 		SpriteAtlasActive;
-	int32 		ActiveLayerIndex;
-
-	loaded_bitmap Bitmaps[BITMAP_MAX_COUNT];
-	int32	      CurrentBitmapIndex;
-	int32		  BitmapCount;
-
 	game_mode 	Mode;
 	uint32		MagicChecksum;
 };

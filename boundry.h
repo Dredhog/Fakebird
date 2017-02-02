@@ -57,9 +57,11 @@ struct game_input{
 	int32				MouseY;
 
 	union{
-		game_button_state Buttons[16];
+		game_button_state Buttons[17];
 		struct{
 			game_button_state 	e;
+			game_button_state 	g;
+			game_button_state 	m;
 			game_button_state 	n;
 			game_button_state 	o;
 			game_button_state 	p;

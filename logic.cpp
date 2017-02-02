@@ -44,7 +44,7 @@ IsRecursiveVisitPushable(level *Level, marked_snakes *MarkedSnakes, uint32 Snake
 
 	for(int32 i = 0; i < Snake->Length; i++){
 		vec2i DestP = Snake->Parts[i].GridP + Dir;
-		if(!IsPointInBounds(DestP, Level->Width, Level->Height)){
+		if(!IsPInBounds(DestP, Level->Width, Level->Height)){
 			return false;
 		}
 
@@ -130,7 +130,7 @@ CanSnakeBeTeleported(level *Level, uint32 SnakeID, uint32 PortalID){
 		vec2i GridP = Level->Snakes[SnakeIndex].Parts[p].GridP;
 		vec2i PartOffset = GridP - SourcePortalP;
 		vec2i DestP = DestPortalP + PartOffset;
-		if(	!IsPointInBounds(DestP, Level->Width, Level->Height)  ||
+		if(	!IsPInBounds(DestP, Level->Width, Level->Height)  ||
 			Level->Occupancy[DestP.X][DestP.Y] == Tile_Type_Solid ||
 			Level->Occupancy[DestP.X][DestP.Y] == Tile_Type_Spikes||
 			Level->Occupancy[DestP.X][DestP.Y] == Tile_Type_Fruit ||
@@ -219,7 +219,7 @@ UpdateLogic(game_state *GameState, game_input *Input, platform_services Platform
 
 	for(uint32 i = 0; i < GameState->Level.SnakeCount; i++){
 		if(GameState->Level.Snakes[i].Transition.Type != Transition_Type_None){
-			GameState->t += 0.05f;
+			GameState->t += 0.1f;
 			if(GameState->t <= 1.0f){
 				return;
 			}else{
@@ -345,13 +345,13 @@ UpdateLogic(game_state *GameState, game_input *Input, platform_services Platform
 			Player->Transition.Slide.NewHeadP = NewP;
 		}
 	}
-	if(Level->Occupancy[Level->GoalP.X][Level->GoalP.Y] == Tile_Type_Empty){
+	if(IsPInBounds(Level->GoalP, Level->Width, Level->Height) && Level->Occupancy[Level->GoalP.X][Level->GoalP.Y] == Tile_Type_Empty){
 		Level->Occupancy[Level->GoalP.X][Level->GoalP.Y] = Tile_Type_Goal;
 	}
-	if(Level->Occupancy[Level->PortalPs[0].X][Level->PortalPs[0].Y] == Tile_Type_Empty){
+	if(IsPInBounds(Level->PortalPs[0], Level->Width, Level->Height) && Level->Occupancy[Level->PortalPs[0].X][Level->PortalPs[0].Y] == Tile_Type_Empty){
 		Level->Occupancy[Level->PortalPs[0].X][Level->PortalPs[0].Y] = Tile_Type_PortalOne;
 	}
-	if(Level->Occupancy[Level->PortalPs[1].X][Level->PortalPs[1].Y] == Tile_Type_Empty){
+	if(IsPInBounds(Level->PortalPs[1], Level->Width, Level->Height) && Level->Occupancy[Level->PortalPs[1].X][Level->PortalPs[1].Y] == Tile_Type_Empty){
 		Level->Occupancy[Level->PortalPs[1].X][Level->PortalPs[1].Y] = Tile_Type_PortalTwo;
 	}
 }

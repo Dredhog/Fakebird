@@ -200,6 +200,8 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event, platf
 				NewInput->LeftCtrl.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_e) {
 				NewInput->e.EndedDown = true;
+			} else if (Event->key.keysym.sym == SDLK_g) {
+				NewInput->g.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_p) {
 				NewInput->p.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_r) {
@@ -208,6 +210,8 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event, platf
 				NewInput->s.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_t) {
 				NewInput->t.EndedDown = true;
+			} else if (Event->key.keysym.sym == SDLK_m) {
+				NewInput->m.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_n) {
 				NewInput->n.EndedDown = true;
 			} else if (Event->key.keysym.sym == SDLK_o) {
@@ -229,6 +233,8 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event, platf
 				NewInput->LeftCtrl.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_e) {
 				NewInput->e.EndedDown = false;
+			} else if (Event->key.keysym.sym == SDLK_g) {
+				NewInput->g.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_p) {
 				NewInput->p.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_r) {
@@ -237,6 +243,8 @@ ProcessInput(game_input *OldInput, game_input *NewInput, SDL_Event* Event, platf
 				NewInput->s.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_t) {
 				NewInput->t.EndedDown = false;
+			} else if (Event->key.keysym.sym == SDLK_m) {
+				NewInput->m.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_n) {
 				NewInput->n.EndedDown = false;
 			} else if (Event->key.keysym.sym == SDLK_o) {

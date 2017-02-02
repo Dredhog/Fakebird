@@ -4,7 +4,7 @@
 internal void 
 ClearOffscreenBuffer(offscreen_buffer Buffer, color FillColor){
 	//BEGIN_TIMED_BLOCK(ClearOffscreenBuffer);
-#if 0
+#if 1
 	memset(Buffer.Memory, 200, Buffer.Width*Buffer.Height*sizeof(4));
 #else
 	FillColor = color{FillColor.R, FillColor.G, FillColor.B, FillColor.A};

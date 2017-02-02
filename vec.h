@@ -60,6 +60,7 @@ struct vec2 {
 	static T dot(vec2 v1, vec2 v2) {
 		return v1.X * v2.X + v1.Y * v2.Y;
 	}
+		
 };
 
 typedef vec2<float> vec2f;
@@ -132,4 +133,17 @@ struct vec3 {
 
 typedef vec3<float> vec3f;
 typedef vec3<int> vec3i;
+
+vec2i Vec2i(vec2f v){
+	return vec2i{(int)v.X, (int)v.Y};
+}
+vec2f Vec2f(vec2i v){
+	return vec2f{(float)v.X, (float)v.Y};
+}
+vec3i Vec3i(vec3f v){
+	return vec3i{(int)v.X, (int)v.Y, (int)v.Z};
+}
+vec3f Vec3f(vec3i v){
+	return vec3f{(float)v.X, (float)v.Y, (float)v.Z};
+}
 #endif //__VEC_H__

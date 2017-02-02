@@ -15,9 +15,13 @@ static const int LEVEL_ICON_SIZE_IN_PIXELS = 100;
 //Bitmaps
 static const int BITMAP_MAX_COUNT = 10;
 
+//Tiles
+static const int MOBILE_TILE_MAX_COUNT = 5;
+static const int ANIMATED_TILE_MAX_COUNT = 40;
+
+
 //block
 static int DEST_TILE_SIZE_IN_PIXELS 	= 35;
-static int SOURCE_TILE_SIZE_IN_PIXELS	= 77;
 
 //Snakebirds
 static const int SNAKE_MAX_COUNT 	= 10;
