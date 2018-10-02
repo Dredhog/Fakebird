@@ -1,6 +1,8 @@
 #if !defined(COMMON_H)
 #define COMMON_H 
 
+#include <stdint.h>
+
 #define ArrayCount(Array) sizeof((Array))/sizeof(Array[0])
 
 #define internal static
@@ -90,7 +92,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRenderStub){
 #define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result  name(char *Filename)
 typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(platform_read_entire_file);
 
-#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void  name(void *Memory)
+#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void  name(debug_read_file_result FileHandle)
 typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(platform_free_file_memory);
 
 #define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(char *Filename, uint64 MemorySize, void *Memory)
@@ -106,10 +108,55 @@ struct platform_services{
 	platform_load_bitmap_from_file	*LoadBitmapFromFile;
 };
 
+#define DEBUG_PROFILING 1
+#if DEBUG_PROFILING  
+#include <x86intrin.h>
+enum{
+	DEBUG_GameUpdateAndRender,
+	DEBUG_UpdateLogic,
+	DEBUG_ClearOffscreenBuffer,
+	DEBUG_StretchBitmapOrthogonaly,
+	DEBUG_FillRect,
+	DEBUG_DrawRectOutline,
+	DEBUG_DrawTriangle,
+};
+
+struct debug_cycle_counter {
+	uint64 CycleCount;
+	uint64 Calls;
+};
+
+char DEBUG_TABLE_NAMES[][40] = {
+	"GameUpdateAndRender",
+	"UpdateLogic",
+	"ClearOffscreenBuffer",
+	"StretchBitmapOrthogonaly",
+	"FillRect",
+	"DrawRectOutline",
+	"DrawTriangle",
+};
+
+debug_cycle_counter *GLOBAL_DEBUG_CYCLE_TABLE;
+#define INIT_DEBUGING() GLOBAL_DEBUG_CYCLE_TABLE = Memory->DEBUG_CYCLE_TABLE;
+#define CLEAR_DEBUG_CYCLE_TABLE() for(uint32 i = 0; i < ArrayCount(DEBUG_TABLE_NAMES); i++){ GLOBAL_DEBUG_CYCLE_TABLE[i] = {};}
+#define BEGIN_TIMED_BLOCK(ID) uint64 StartCycleCount##ID = _rdtsc();
+#define END_TIMED_BLOCK(ID) GLOBAL_DEBUG_CYCLE_TABLE[DEBUG_##ID].CycleCount += _rdtsc() - StartCycleCount##ID; \
+							GLOBAL_DEBUG_CYCLE_TABLE[DEBUG_##ID].Calls++;
+#else
+#define INIT_DEBUGING()
+#define CLEAR_DEBUG_CYCLE_TABLE()
+#define BEGIN_TIMED_BLOCK(ID)
+#define END_TIMED_BLOCK(ID)
+#endif //DEGUB_PROFILING
+
 struct game_memory{
 	void 	*BaseAddress;
 	uint64	Size;
 	platform_services PlatformServices;
+#if DEBUG_PROFILING
+	debug_cycle_counter DEBUG_CYCLE_TABLE[ArrayCount(DEBUG_TABLE_NAMES)];
+#endif
 };
+
 
 #endif //COMMON_H 

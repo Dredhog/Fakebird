@@ -204,6 +204,9 @@ GenerateNewStateAfterTransition(level *Level, marked_snakes *MarkedSnakes){
 
 internal void
 UpdateLogic(game_state *GameState, game_input *Input, platform_services PlatformServices){
+	if(Input->r.EndedDown && Input->r.Changed){
+		ReloadLevel(GameState, PlatformServices);
+	}
 	if(!GameState->Player){
 		return;
 	}
@@ -219,7 +222,7 @@ UpdateLogic(game_state *GameState, game_input *Input, platform_services Platform
 
 	for(uint32 i = 0; i < GameState->Level.SnakeCount; i++){
 		if(GameState->Level.Snakes[i].Transition.Type != Transition_Type_None){
-			GameState->t += 0.1f;
+			GameState->t += 0.15f;
 			if(GameState->t <= 1.0f){
 				return;
 			}else{
@@ -235,9 +238,6 @@ UpdateLogic(game_state *GameState, game_input *Input, platform_services Platform
 
 	if(Input->Space.EndedDown && Input->Space.Changed){
 		PlayNextSnake(GameState);
-	}
-	if(Input->r.EndedDown && Input->r.Changed){
-		ReloadLevel(GameState, PlatformServices);
 	}
 
 	snake *Player = GameState->Player;

@@ -140,8 +140,10 @@ DEBUGPlatformLoadBitmapFromFile(char *FileName){
 }
 
 void
-DEBUGPlatformFreeFileMemory(void *Memory){
-	free(Memory);
+DEBUGPlatformFreeFileMemory(debug_read_file_result FileHandle){
+	if(FileHandle.ContentsSize){
+		free(FileHandle.Contents);
+	}
 }
 
 bool32
@@ -312,6 +314,7 @@ CleanUp(platform_state *Platform)
 struct loaded_game_code{
 	void *LibraryHandle;
 	game_update_and_render *UpdateAndRender;
+	struct timespec LastLoadTime;
 	bool IsValid;
 };
 
@@ -351,8 +354,9 @@ int main(int Count, char *Arguments[])
 	AllocateGameMemory(&GameMemory);
 	assert(GameMemory.BaseAddress && GameMemory.Size);
 
-	playback_buffer PlaybackBuffer = NewPlaybackBuffer(32, 8, SafeTruncateUint64(GameMemory.Size));
-	printf("Memory BaseAddress: %lu, GameMemory.Size: %lu KB\n", (uint64)GameMemory.BaseAddress, GameMemory.Size / (uint64)1e3);
+	playback_buffer PlaybackBuffer = NewPlaybackBuffer(32, 32, SafeTruncateUint64(GameMemory.Size));
+	printf("Memory BaseAddress: %lu, GameMemory.Size: %lu KB\n",
+			(uint64)GameMemory.BaseAddress, GameMemory.Size / (uint64)1e3);
 
 	game_input OldInput = {};
 	game_input NewInput = {};
@@ -360,10 +364,20 @@ int main(int Count, char *Arguments[])
 
 	while (Platform.Running)
 	{
-		if(Platform.FrameCount%GAME_CODE_UPDATE_FRAME_PERIOD == 0){
-			UnloadGameCode(GameCode);
-			GameCode = LoadGameCode();
+		{
+			struct stat CodeStatus = {};
+			stat("./game.so", &CodeStatus);
+			if ((CodeStatus.st_mtim.tv_sec > GameCode.LastLoadTime.tv_sec) ||
+				(CodeStatus.st_mtim.tv_sec == GameCode.LastLoadTime.tv_sec &&
+				 CodeStatus.st_mtim.tv_nsec > GameCode.LastLoadTime.tv_nsec)){
+				printf("Loading game code, OldTime: %lds, NewTime: %lds\n",
+						GameCode.LastLoadTime.tv_sec, CodeStatus.st_mtim.tv_sec);
+				UnloadGameCode(GameCode);
+				GameCode = LoadGameCode();
+				GameCode.LastLoadTime = CodeStatus.st_mtim;
+			}
 		}
+
 
 		Platform.FPS.start();
 		Platform.Running = ProcessInput(&OldInput, &NewInput, &Platform.Event, &Platform);
@@ -391,17 +405,17 @@ int main(int Count, char *Arguments[])
 		SDL_RenderCopy(Platform.Renderer, Platform.OffscreenBuffer.Texture, 0, 0);
 		SDL_RenderPresent(Platform.Renderer);
 		
-		SDL_Delay(FRAME_DURATION - ((Platform.FPS.get_time() <= FRAME_DURATION) ? Platform.FPS.get_time() : FRAME_DURATION));
+		//SDL_Delay(FRAME_DURATION - ((Platform.FPS.get_time() <= FRAME_DURATION) ? Platform.FPS.get_time() : FRAME_DURATION));
 		Platform.FPS.update_avg_fps();
 
 #if DEBUG_PROFILING
 		printf("fps: %f,\n", Platform.FPS.get_average_fps());
 		for(uint32 i = 0; i < ArrayCount(DEBUG_TABLE_NAMES); i++){
-			uint64 AverageOpDurationInCyles = (DEBUG_CYCLE_TABLE[i].Calls) ? DEBUG_CYCLE_TABLE[i].CycleCount/DEBUG_CYCLE_TABLE[i].Calls : 0;
-			printf("%35s:%15lucy,%10lucy/op,%10.2f,%10lu calls\n",
-					DEBUG_TABLE_NAMES[i], DEBUG_CYCLE_TABLE[i].CycleCount, AverageOpDurationInCyles,
-					100.0 * (real64)DEBUG_CYCLE_TABLE[i].CycleCount/(real64)DEBUG_CYCLE_TABLE[DEBUG_UpdateAndRender].CycleCount,
-					DEBUG_CYCLE_TABLE[i].Calls);
+			uint64 AverageOpDurationInCyles = (GameMemory.DEBUG_CYCLE_TABLE[i].Calls) ? GameMemory.DEBUG_CYCLE_TABLE[i].CycleCount/GameMemory.DEBUG_CYCLE_TABLE[i].Calls : 0;
+			printf("\t%-30s:%15lucy,%10lucy/op,%10.2f,%10lu calls\n",
+					DEBUG_TABLE_NAMES[i], GameMemory.DEBUG_CYCLE_TABLE[i].CycleCount, AverageOpDurationInCyles,
+					100.0 * (real64)GameMemory.DEBUG_CYCLE_TABLE[i].CycleCount/(real64)GameMemory.DEBUG_CYCLE_TABLE[DEBUG_GameUpdateAndRender].CycleCount,
+					GameMemory.DEBUG_CYCLE_TABLE[i].Calls);
 		}
 		printf("\n");
 #endif

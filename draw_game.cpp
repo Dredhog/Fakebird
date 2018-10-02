@@ -18,7 +18,7 @@ static color TILEMAP_BACKGROUND_COLORS[LEVEL_MAX_LAYER_COUNT] = {	{24, 255, 31, 
 																   	{200, 60, 255, 100},
 																   	{200, 100, 40, 100}};
 static color TILE_BRUSH_TYPE_COLORS[2] = {	{0, 0, 255, 150},
-										{0, 255, 0, 150}};
+										{255, 255, 255, 150}};
 
 internal void
 DrawLevelTilesInLayerRange(level *Level, offscreen_buffer TargetBuffer, projection *Projection, int32 StartLayer, int32 EndLayer){
@@ -45,12 +45,17 @@ UpdateAnimatedTiles(level *Level){
 }
 
 internal void
-DrawAnimatedTiles(level *Level, offscreen_buffer TargetBuffer, projection *Projection){
+DrawAnimatedTiles(level *Level, offscreen_buffer TargetBuffer, projection *Projection, game_input *Input, bool IsForeground){
 	for(int32 i = 0; i < Level->AnimatedTileCount; i++){
 		animated_tile *Tile = Level->AnimatedTiles + i;
-		rectangle DestRect = WorldRectToScreenRect(Tile->P, Tile->WidthInUnits, Tile->HeightInUnits, Projection);
-		if(Tile->Bitmap){
-			StretchBitmapOrthogonaly(TargetBuffer, *Tile->Bitmap, DestRect, Tile->SourceRect);
+		if((Tile->P.Z >= 0 && IsForeground) || (Tile->P.Z < 0 && !IsForeground)){
+			rectangle DestRect = WorldRectToScreenRect(Tile->P, Tile->WidthInUnits, Tile->HeightInUnits, Projection);
+			if(Tile->Bitmap){
+				StretchBitmapOrthogonaly(TargetBuffer, *Tile->Bitmap, DestRect, Tile->SourceRect);
+				if(IsInsideRect((real32)Input->MouseX, (real32)Input->MouseY, DestRect)){
+					DrawRectOutline(TargetBuffer, DestRect, {0, 0, 0, 255});
+				}
+			}
 		}
 	}
 }
@@ -124,7 +129,7 @@ DrawTileModeLevelAndUI(game_state *GameState, offscreen_buffer OffscreenBuffer, 
 		rectangle TilemapRect = GetTilemapDestRect(&GameState->TilemapPalette);
 		loaded_bitmap *TilemapBitmap = GetTilemapBitmap(&GameState->TilemapPalette);
 		FillRect(OffscreenBuffer, TilemapRect, Color);
-		StretchBitmapOrthogonaly(OffscreenBuffer, *TilemapBitmap, TilemapRect, rectangle{0, 0, TilemapBitmap->Width, TilemapBitmap->Height});
+		StretchBitmapOrthogonaly(OffscreenBuffer, *TilemapBitmap, TilemapRect, rectangle{0, 0, (real32)TilemapBitmap->Width, (real32)TilemapBitmap->Height});
 	}
 }
 
@@ -147,7 +152,7 @@ DrawTileBrush(tile_brush *TileBrush, offscreen_buffer OffscreenBuffer, rectangle
 	if(!TileBrush->IsOffGridMode){
 		TileBrushRect = GetGridRectFromScreenCoords(MouseX, MouseY, ScreenOutline);
 	}else{
-		vec3f MouseWorldP = ScreenPToWorldP(vec2f{(real32)MouseX, (real32)MouseY}, TileBrush->WorldZ, Projection);
+		vec3 MouseWorldP = ScreenPToWorldP(vec2f{(real32)MouseX, (real32)MouseY}, TileBrush->WorldZ, Projection);
 		TileBrushRect = WorldRectToScreenRect(MouseWorldP, TileBrush->WidthInUnits, TileBrush->HeightInUnits, Projection); 
 	}
 

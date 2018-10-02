@@ -1,28 +1,6 @@
 #if !defined(MISC_CPP)
 #define MISC_CPP
 
-internal inline bool32
-IsInBounds(int32 i, int32 j, int32 MaxI, int32 MaxJ){
-	if(i < 0 || j < 0 || i >= MaxI || j >= MaxJ){
-		return false;
-	}	
-	return true;
-}
-
-internal inline bool32
-IsPInBounds(vec2i P, int32 MaxI, int32 MaxJ){
-	return IsInBounds(P.X, P.Y, MaxI, MaxJ);
-}
-
-internal uint32
-CapInt32(int32 a, int32 t, int32 b){
-	if(t < a){
-		return a;
-	}else if (t > b){
-		return b; }
-	return t;
-}
-
 internal void
 AddSnakeToLevel(level *Level, snake Snake){
 	assert(Level->SnakeCount >= 0 && Level->SnakeCount < SNAKE_MAX_COUNT);
@@ -31,9 +9,35 @@ AddSnakeToLevel(level *Level, snake Snake){
 }
 
 internal animated_tile *
-AddMobileTile(level *Level, vec3f WorldP, tile_brush *TileBrush){
+AddAnimatedTile(level *Level, vec3 WorldP, tile_brush *TileBrush){
 	assert(Level->AnimatedTileCount >= 0 && Level->AnimatedTileCount < Level->AnimatedTileCapacity);
+	//Level->AnimatedTiles[AnimatedTIleCount] = 
 	return Level->AnimatedTiles + Level->AnimatedTileCount++;
+}
+
+internal void
+DeleteAnimatedTile(level *Level, int32 Index){
+	assert(Index >= 0 && Index < Level->AnimatedTileCount);
+	assert(Level->AnimatedTileCount > 0);
+	if(Level->AnimatedTileCount > 1){
+		Level->AnimatedTiles[Index] = Level->AnimatedTiles[--Level->AnimatedTileCount];
+	}else{
+		Level->AnimatedTiles[Index] = {};
+		--Level->AnimatedTileCount;
+	}
+}
+
+internal void
+DeleteSelectedAnimatedTile(level *Level, int32 MouseX, int32 MouseY, projection *Projection){
+	for(int32 i = 0; i < Level->AnimatedTileCount; i++){
+		animated_tile *Tile = &Level->AnimatedTiles[i];
+		rectangle TileScreenRect = WorldRectToScreenRect(Tile->P, Tile->WidthInUnits,
+													Tile->HeightInUnits, Projection);
+		if(IsInsideRect((real32)MouseX, (real32)MouseY, TileScreenRect)){
+			DeleteAnimatedTile(Level, i);
+			i--;
+		}
+	}
 }
 
 internal void
@@ -55,6 +59,7 @@ internal rectangle
 GetTilemapDestRect(tilemap_palette *Palette){
 	return Palette->Tilemaps[Palette->TilemapIndex].DestRect;
 }
+
 internal loaded_bitmap*
 GetTilemapBitmap(tilemap_palette *Palette){
 	return &Palette->Tilemaps[Palette->TilemapIndex].Bitmap;
@@ -64,7 +69,7 @@ internal void
 UpdateTilemapRects(tilemap_palette *Palette, int32 NewScreenHeight){
 	for(int32 i = 0; i < Palette->TilemapCount; i++){
 		tilemap *Tilemap = &Palette->Tilemaps[i];
-		Tilemap->DestRect = {0, NewScreenHeight - Tilemap->Bitmap.Height, Tilemap->Bitmap.Width, NewScreenHeight};
+		Tilemap->DestRect = {0, (real32)(NewScreenHeight - Tilemap->Bitmap.Height), (real32)Tilemap->Bitmap.Width, (real32)NewScreenHeight};
 	}
 }
 
@@ -109,7 +114,7 @@ ReloadLevel(game_state *GameState, platform_services PlatformServices)
 	}
 	if(LevelHandle.ContentsSize){
 		memcpy(&GameState->Level, LevelHandle.Contents, LevelHandle.ContentsSize);
-		PlatformServices.FreeFileMemory(LevelHandle.Contents);
+		PlatformServices.FreeFileMemory(LevelHandle);
 		GameState->Level.FruitCount = 0;
 		for(uint32 i = 0; i < GameState->Level.Width; i++){
 			for(uint32 j = 0; j < GameState->Level.Height; j++){
@@ -141,7 +146,7 @@ ReloadLevel(game_state *GameState, platform_services PlatformServices)
 		GameState->Player = {};
 		GameState->Level.Width = LEVEL_MAX_WIDTH;
 		GameState->Level.Height = LEVEL_MAX_HEIGHT;
+		GameState->Level.AnimatedTileCapacity = ANIMATED_TILE_MAX_COUNT;
 	}
 }
-
 #endif //MISC_CPP

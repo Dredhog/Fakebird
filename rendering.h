@@ -53,4 +53,16 @@ struct parallelogram{
 	};
 };
 
+struct vertex{
+	vec3  P;
+	vec2f UV;
+};
+
+struct triangle_mesh{
+	vertex Vertices[50];
+	uint32 Indices[50];
+	uint32 VerticeCount;
+	uint32 IndiceCount;
+};
+
 #endif //RENDERER_H

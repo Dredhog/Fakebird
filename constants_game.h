@@ -19,9 +19,8 @@ static const int BITMAP_MAX_COUNT = 10;
 static const int MOBILE_TILE_MAX_COUNT = 5;
 static const int ANIMATED_TILE_MAX_COUNT = 40;
 
-
 //block
-static int DEST_TILE_SIZE_IN_PIXELS 	= 35;
+static const int  DEST_TILE_SIZE_IN_PIXELS 	= 35;
 
 //Snakebirds
 static const int SNAKE_MAX_COUNT 	= 10;

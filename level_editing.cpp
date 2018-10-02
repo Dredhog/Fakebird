@@ -62,41 +62,41 @@ EditLevel(level *Level, rectangle ScreenOutline, uint32 *ActiveBrush, game_input
 internal void
 TileLevel(level *Level, tilemap_palette *Palette, tile_brush *TileBrush, rectangle ScreenOutline, rectangle GameBoardRect, game_input *Input, projection *Projection){
 	vec2i MouseGridP = GetGridP(Input->MouseX, Input->MouseY, GameBoardRect);
+
+	if(Palette->Active && Input->MouseLeft.EndedDown && Input->MouseLeft.Changed){
+		if(IsInsideRect((real32)Input->MouseX, (real32)Input->MouseY, GetTilemapDestRect(Palette))){
+			tilemap *Tilemap = GetTilemap(Palette);
+			TileBrush->Tile = tile{&Tilemap->Bitmap, GetTileRect(Input->MouseX, Input->MouseY, Tilemap)};
+			TileBrush->WidthInUnits = (real32)Tilemap->GridSpacingX / Projection->UnitInPixels;
+			TileBrush->HeightInUnits = (real32)Tilemap->GridSpacingY / Projection->UnitInPixels;
+		}
+	}
 	if(!TileBrush->IsOffGridMode){
 		if(Input->MouseLeft.EndedDown){
-			if(Palette->Active && IsInsideRect(Input->MouseX, Input->MouseY, GetTilemapDestRect(Palette))){
-				if(Input->MouseLeft.Changed){
-					TileBrush->Tile = tile{GetTilemapBitmap(Palette), GetTileRect(Input->MouseX, Input->MouseY, GetTilemap(Palette))};
-				}
-			}else if(IsPInBounds(MouseGridP, Level->Width, Level->Height)){
+			if(!(Palette->Active && IsInsideRect((real32)Input->MouseX, (real32)Input->MouseY, GetTilemapDestRect(Palette)))){
 				Level->Tiles[TileBrush->ActiveLayerIndex][MouseGridP.X][MouseGridP.Y] = TileBrush->Tile;
 			}
-		}else if(Input->MouseRight.EndedDown && IsPInBounds(MouseGridP, Level->Width, Level->Height)){
+		} else if(Input->MouseRight.EndedDown && IsPInBounds(MouseGridP, Level->Width, Level->Height)){
 			Level->Tiles[TileBrush->ActiveLayerIndex][MouseGridP.X][MouseGridP.Y] = {};
 		}
 	}else{
-		if(Input->MouseLeft.EndedDown && Input->MouseLeft.Changed){
-			if(Palette->Active && IsInsideRect(Input->MouseX, Input->MouseY, GetTilemapDestRect(Palette))){
-				if(Input->MouseLeft.Changed){
-					tilemap *Tilemap = GetTilemap(Palette);
-					TileBrush->Tile = tile{&Tilemap->Bitmap, GetTileRect(Input->MouseX, Input->MouseY, Tilemap)};
-					TileBrush->WidthInUnits = (real32)Tilemap->GridSpacingX / Projection->UnitInPixels;
-					TileBrush->HeightInUnits = (real32)Tilemap->GridSpacingY / Projection->UnitInPixels;
-				}
-			}else{
-				vec3f WorldP = ScreenPToWorldP(vec2f{(real32)Input->MouseX, (real32)Input->MouseY}, TileBrush->WorldZ, Projection);
-				animated_tile *Tile = AddMobileTile(Level, WorldP, TileBrush);
+		if(!(Palette->Active  && IsInsideRect((real32)Input->MouseX, (real32)Input->MouseY, GetTilemapDestRect(Palette)))){
+			if(Input->MouseLeft.EndedDown && Input->MouseLeft.Changed){
+				vec3 MouseWorldP = ScreenPToWorldP(vec2f{(real32)Input->MouseX, (real32)Input->MouseY}, TileBrush->WorldZ, Projection);
+				animated_tile *Tile = AddAnimatedTile(Level, MouseWorldP, TileBrush);
 				*Tile = {};
 				Tile->Bitmap = TileBrush->Tile.Bitmap;
 				Tile->SourceRect = TileBrush->Tile.SourceRect;
-				Tile->P = WorldP;
+				Tile->P = MouseWorldP;
 				Tile->WidthInUnits = TileBrush->WidthInUnits;
 				Tile->HeightInUnits = TileBrush->HeightInUnits;
 				if(TileBrush->Type == TileBrush_Mobile){
-					Tile->dP = {0.005f, 0.0f, 0.0f};
+					Tile->dP = {0.01f, 0.0f, 0.0f};
 				}else if(TileBrush->Type == TileBrush_Static){
 					Tile->dP = {0.0f, 0.0f, 0.0f};
 				}
+			}else if(Input->MouseRight.EndedDown && Input->MouseRight.Changed){
+				DeleteSelectedAnimatedTile(Level, Input->MouseX, Input->MouseY, Projection);
 			}
 		}
 		if(Input->ArrowUp.EndedDown){
