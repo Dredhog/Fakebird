@@ -27,7 +27,7 @@ InitPlatform(platform_state *Platform)
 		printf("Platform: SDL Initialization error: %s\n", SDL_GetError());
 		return false;
 	}
-	if ((Platform->Window = SDL_CreateWindow("Snakebird ripoff", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE)) == NULL) {
+	if ((Platform->Window = SDL_CreateWindow("Fakebird", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE)) == NULL) {
 		printf("Platform: Window creation error: %s\n", SDL_GetError());
 		return false;
 	}

@@ -119,7 +119,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 	{
 		projection *Projection = &GameState->Projection;
-		Projection->CameraP = {0, 0, 2.0f};
+		Projection->CameraP = {0, 0, 1.f};
 		Projection->CameraDir = {0, 0, -1.0f};
 		Projection->UnitInPixels = (real32)DEST_TILE_SIZE_IN_PIXELS;
 		Projection->FocalLength = 1;
@@ -132,6 +132,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 	//Update and Render
 	ClearOffscreenBuffer(OffscreenBuffer, color{160, 200, 255, 255});
+#define RENDER_TEXTURED_CUBE 0
+#if RENDER_TEXTURED_CUBE != 0
 	{
 		triangle_mesh Mesh = {};
 		Mesh.VerticeCount = 16;
@@ -231,6 +233,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 		DrawTriangleMesh(OffscreenBuffer, GameState->TilemapPalette.Tilemaps[5].Bitmap, &Mesh, FinalTransform );
 	}
+#endif
+#undef RENDER_TEXTURED_CUBE 
 	switch(GameState->Mode){
 		case Game_Mode_Overworld:
 			UpdateOverworld(GameState, ScreenOutline, GameBoardRect, Memory->PlatformServices, Input);
