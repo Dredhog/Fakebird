@@ -36,11 +36,9 @@ A clone of the game "Snakebird" programmed from scratch including software rende
 ![Tile Editor](docs/tile_editor.png "A Tilesheet page for the tile editor")
 
 ## Textured Triangle Rasterizer
-The project also includes a triangle with perspective correct texture mapping (right)
+The project also includes a triangle rasterizer with perspective correct texture mapping (right image)
 
-* The rasterization code is from Fabien Giesens blog
-* Perspective correct texture mapping was achieved with the help an article by Chris Hecker on the topic (Right has perspective correction applied)
+* The rasterization code is from  Fabian “ryg” Giesen's blog
+* Perspective correct texture mapping learned from an article by Chris Hecker on the topic
 
 ![Texture Mapping](docs/texture_mapping_comparison.png "Uncorrected vs Perspective Corrected Texture Mapping")
-
-
