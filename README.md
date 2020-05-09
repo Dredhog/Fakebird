@@ -42,3 +42,6 @@ The project also includes a triangle rasterizer with perspective correct texture
 * Perspective correct texture mapping learned from an article by Chris Hecker on the topic
 
 ![Texture Mapping](docs/texture_mapping_comparison.png "Uncorrected vs Perspective Corrected Texture Mapping")
+
+## Wooden crate texture license ##
+The texture `data/crate.png` (visible inside the screenshots above) was originally created by by [zackseeker]( https://www.deviantart.com/zackseeker/art/Wooden-crate-texture-195459851), it is licensed under [Attribution-NonCommercial 3.0](https://creativecommons.org/licenses/by-nc/3.0/). The version on this repo `data/crate.png` has it's resolution reduced compared to the original. `data/crate.bmp` is identical to `data/crate.png` but with a different file format.
